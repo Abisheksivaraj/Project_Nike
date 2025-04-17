@@ -5,8 +5,6 @@ const app = express();
 
 app.use(express.json());
 
-
-
 app.use(
   cors({
     origin: "*", // Allow requests from this origin
@@ -24,8 +22,9 @@ app.get("/", (req, res) => {
   return res.status(200).send({ message: "Welcome Nike" });
 });
 
-const login = require("./src/Route/LoginRoute")
-app.use(login)
-
+const login = require("./src/Route/LoginRoute");
+const defectType = require("./src/Route/DefectRoute");
+app.use(login);
+app.use(defectType);
 
 module.exports = app;
