@@ -1,4 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
+import { api } from "../../apiConfig";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 const ColorCodeMaster = () => {
   const [color, setColor] = useState("#3498db");
@@ -15,15 +18,38 @@ const ColorCodeMaster = () => {
   const [displayFormat, setDisplayFormat] = useState("hex");
   const [colorName, setColorName] = useState("");
   const [savedColors, setSavedColors] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   const saturationRef = useRef(null);
   const lightnessRef = useRef(null);
   const hueRef = useRef(null);
 
+  // Fetch saved colors from backend on component mount
+  useEffect(() => {
+    fetchSavedColors();
+  }, []);
+
   // Update main color when HSL changes
   useEffect(() => {
     updateColorFromHSL();
   }, [hue, saturation, lightness]);
+
+  // Fetch saved colors from the backend API
+  const fetchSavedColors = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await api.get("/get-Color");
+      setSavedColors(response.data);
+    } catch (err) {
+      console.error("Failed to fetch colors:", err);
+      setError("Failed to load saved colors. Please try again later.");
+      toast.error("Failed to load saved colors");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Convert HSL to Hex
   const hslToHex = (h, s, l) => {
@@ -160,11 +186,22 @@ const ColorCodeMaster = () => {
     navigator.clipboard
       .writeText(textToCopy)
       .then(() => {
-        alert(`Copied ${textToCopy} to clipboard!`);
+        toast.success(`Copied ${textToCopy} to clipboard!`, {
+          position: "bottom-right",
+          autoClose: 2000,
+        });
       })
       .catch((err) => {
         console.error("Could not copy text: ", err);
+        toast.error("Failed to copy to clipboard");
       });
+  };
+
+  // Select a recent or common color
+  const selectRecentColor = (newColor) => {
+    setColor(newColor);
+    updateHSLFromHex(newColor);
+    addToRecentColors(newColor);
   };
 
   // Add color to recent colors
@@ -173,12 +210,6 @@ const ColorCodeMaster = () => {
       const updatedColors = [newColor, ...recentColors.slice(0, 4)];
       setRecentColors(updatedColors);
     }
-  };
-
-  // Select recent color
-  const selectRecentColor = (selectedColor) => {
-    setColor(selectedColor);
-    updateHSLFromHex(selectedColor);
   };
 
   // Handle hue change
@@ -280,31 +311,68 @@ const ColorCodeMaster = () => {
     { name: "Black", hex: "#2c3e50" },
   ];
 
-  // Add current color to saved colors
-  const addToSavedColors = () => {
+  // Add current color to saved colors via API
+  const addToSavedColors = async () => {
     if (colorName.trim() === "") {
-      alert("Please enter a name for this color");
+      toast.warning("Please enter a name for this color", {
+        position: "top-center",
+      });
       return;
     }
 
-    const newSavedColor = {
-      name: colorName,
-      hex: color,
-    };
+    setIsLoading(true);
+    setError(null);
 
-    setSavedColors([...savedColors, newSavedColor]);
-    setColorName(""); // Clear the input
+    try {
+      await api.post("add-Color", {
+        colorName: colorName,
+        hexCode: color,
+      });
+
+      // Refresh the saved colors list
+      await fetchSavedColors();
+
+      // Clear the input
+      setColorName("");
+      toast.success(`"${colorName}" added to your collection!`, {
+        position: "top-right",
+      });
+    } catch (err) {
+      console.error("Failed to save color:", err);
+      setError("Failed to save color. Please try again.");
+      toast.error("Failed to save color. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  // Remove a saved color
-  const removeSavedColor = (index) => {
-    const updatedColors = [...savedColors];
-    updatedColors.splice(index, 1);
-    setSavedColors(updatedColors);
+  // Remove a saved color via API
+  const removeSavedColor = async (id, colorName) => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      await api.delete(`/delete-color/${id}`);
+
+      // Refresh the saved colors list
+      await fetchSavedColors();
+      toast.success(`"${colorName}" removed from collection`, {
+        position: "top-right",
+      });
+    } catch (err) {
+      console.error("Failed to delete color:", err);
+      setError("Failed to delete color. Please try again.");
+      toast.error("Failed to delete color. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
     <div className="flex h-screen bg-gray-100">
+      {/* Toast Container */}
+      <ToastContainer />
+
       {/* Color Picker Area */}
       <div className="w-3/4 p-4">
         <div className="bg-white rounded-lg shadow-md p-4 h-full">
@@ -479,15 +547,19 @@ const ColorCodeMaster = () => {
                       value={colorName}
                       onChange={(e) => setColorName(e.target.value)}
                       placeholder="Enter color name"
-                      className="flex-grow p-2 border border-gray-300 rounded-l focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="flex-grow w-[2rem] p-2 border border-gray-300 rounded-l focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                     <button
                       onClick={addToSavedColors}
                       className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-r transition"
+                      disabled={isLoading}
                     >
-                      Add
+                      {isLoading ? "Adding..." : "Add"}
                     </button>
                   </div>
+                  {error && (
+                    <p className="text-red-500 text-sm mt-1">{error}</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -500,39 +572,42 @@ const ColorCodeMaster = () => {
         <div className="bg-white rounded-lg shadow-md p-4 h-full">
           <h2 className="text-xl font-bold mb-4">My Color Collection</h2>
 
-          {savedColors.length === 0 ? (
+          {isLoading && (
+            <div className="text-center py-4">
+              <p>Loading...</p>
+            </div>
+          )}
+
+          {!isLoading && savedColors.length === 0 ? (
             <div className="text-gray-500 text-center py-8">
               Add colors to your collection by selecting a color and clicking
               "Add"
             </div>
           ) : (
             <div className="space-y-2 max-h-full overflow-y-auto">
-              {savedColors.map((savedColor, index) => (
+              {savedColors.map((savedColor) => (
                 <div
-                  key={index}
+                  key={savedColor._id}
                   className="flex items-center bg-gray-50 rounded-md p-2 hover:bg-gray-100"
                 >
                   <div
                     className="h-8 w-8 rounded-md mr-2 flex-shrink-0"
-                    style={{ backgroundColor: savedColor.hex }}
+                    style={{ backgroundColor: savedColor.hexCode }}
                   />
                   <div className="flex-grow">
-                    <div className="font-medium">{savedColor.name}</div>
+                    <div className="font-medium">{savedColor.colorName}</div>
                     <div className="text-xs text-gray-500">
-                      {savedColor.hex}
+                      {savedColor.hexCode}
                     </div>
                   </div>
+
                   <button
-                    onClick={() => selectRecentColor(savedColor.hex)}
-                    className="text-blue-500 hover:text-blue-700 text-sm mr-1"
-                    title="Use this color"
-                  >
-                    Use
-                  </button>
-                  <button
-                    onClick={() => removeSavedColor(index)}
+                    onClick={() =>
+                      removeSavedColor(savedColor._id, savedColor.colorName)
+                    }
                     className="text-red-500 hover:text-red-700 text-sm"
                     title="Remove from collection"
+                    disabled={isLoading}
                   >
                     ×
                   </button>

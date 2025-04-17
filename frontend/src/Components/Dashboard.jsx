@@ -1,52 +1,109 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { api } from "../../apiConfig";
 
 export default function Dashboard() {
-  const [data, setData] = useState([
-    {
-      colorCode: "Blue",
-      name: "Arul",
-      defects: [
-        { type: "Clean", hourlyData: [1, 0, 0, 0, 0, 0, 0, 0], total: 10 },
-        { type: "Trimming", hourlyData: [0, 0, 0, 0, 0, 0, 0, 0], total: 3 },
-        { type: "Bond", hourlyData: [0, 0, 0, 0, 0, 0, 0, 0], total: 0 },
-        { type: "Rock", hourlyData: [0, 0, 0, 0, 0, 0, 0, 0], total: 0 },
-        { type: "Banana", hourlyData: [0, 0, 0, 0, 0, 0, 0, 0], total: 0 },
-      ],
-    },
-    {
-      colorCode: "Orange",
-      name: "Ramu",
-      defects: [
-        { type: "Clean", hourlyData: [0, 0, 0, 0, 0, 0, 0, 0], total: 0 },
-        { type: "Trimming", hourlyData: [0, 0, 0, 0, 0, 0, 0, 0], total: 0 },
-        { type: "Bond", hourlyData: [0, 0, 0, 0, 0, 0, 0, 0], total: 0 },
-        { type: "Rock", hourlyData: [0, 0, 0, 0, 0, 0, 0, 0], total: 0 },
-        { type: "Banana", hourlyData: [0, 0, 0, 0, 0, 0, 0, 0], total: 0 },
-      ],
-    },
-    {
-      colorCode: "Pink",
-      name: "Venkat",
-      defects: [
-        { type: "Clean", hourlyData: [0, 0, 0, 0, 0, 0, 0, 0], total: 0 },
-        { type: "Trimming", hourlyData: [0, 0, 0, 0, 0, 0, 0, 0], total: 0 },
-        { type: "Bond", hourlyData: [0, 0, 0, 0, 0, 0, 0, 0], total: 0 },
-        { type: "Rock", hourlyData: [0, 0, 0, 0, 0, 0, 0, 0], total: 0 },
-        { type: "Banana", hourlyData: [0, 0, 0, 0, 0, 0, 0, 0], total: 0 },
-      ],
-    },
-    {
-      colorCode: "Green",
-      name: "Thiru",
-      defects: [
-        { type: "Clean", hourlyData: [0, 0, 0, 0, 0, 0, 0, 0], total: 0 },
-        { type: "Trimming", hourlyData: [0, 0, 0, 0, 0, 0, 0, 0], total: 0 },
-        { type: "Bond", hourlyData: [0, 0, 0, 0, 0, 0, 0, 0], total: 0 },
-        { type: "Rock", hourlyData: [0, 0, 0, 0, 0, 0, 0, 0], total: 0 },
-        { type: "Banana", hourlyData: [0, 0, 0, 0, 0, 0, 0, 0], total: 0 },
-      ],
-    },
-  ]);
+  const [data, setData] = useState([]);
+  const [defectTypes, setDefectTypes] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // Function to fetch data
+  const fetchData = async () => {
+    try {
+      const response = await api.get("/get-Defect");
+      const defectData = response.data;
+      setDefectTypes(defectData);
+
+      // If data is already initialized, just update defect types
+      if (data.length > 0) {
+        updateDefectTypes(defectData);
+      } else {
+        // Initialize dashboard data with fetched defect types
+        initializeDashboardData(defectData);
+      }
+    } catch (error) {
+      console.error("Error fetching defect types:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Set up initial data fetch and refresh interval
+  useEffect(() => {
+    // Fetch data immediately on component mount
+    fetchData();
+
+    // Set up interval for refreshing data every 3 seconds
+    const refreshInterval = setInterval(() => {
+      fetchData();
+    }, 3000);
+
+    // Clean up interval on component unmount
+    return () => clearInterval(refreshInterval);
+  }, []);
+
+  // Function to update defect types without resetting user input
+  const updateDefectTypes = (defectData) => {
+    const newData = [...data];
+
+    // For each person
+    newData.forEach((person, personIndex) => {
+      // Create a map of existing defect data
+      const existingDefects = {};
+      person.defects.forEach((defect) => {
+        existingDefects[defect.type] = defect;
+      });
+
+      // Update defects array with new defect types, preserving existing data
+      person.defects = defectData.map((defect) => {
+        const defectName =
+          defect.defectName || defect.name || defect.type || "Unknown";
+
+        // If this defect type already exists, preserve its data
+        if (existingDefects[defectName]) {
+          return existingDefects[defectName];
+        }
+
+        // Otherwise create a new defect entry
+        return {
+          type: defectName,
+          hourlyData: [0, 0, 0, 0, 0, 0, 0, 0],
+          total: 0,
+        };
+      });
+    });
+
+    setData(newData);
+  };
+
+  // Initialize dashboard data with dynamic defect types
+  const initializeDashboardData = (defectData) => {
+    const defaultPeople = [
+      { colorCode: "Blue", name: "Arul" },
+      { colorCode: "Orange", name: "Ramu" },
+      { colorCode: "Pink", name: "Venkat" },
+      { colorCode: "Green", name: "Thiru" },
+    ];
+
+    // Create data structure with dynamic defect types
+    const initializedData = defaultPeople.map((person) => {
+      return {
+        ...person,
+        defects: defectData.map((defect) => {
+          // Try different properties that might contain the defect name
+          const defectName =
+            defect.defectName || defect.name || defect.type || "Unknown";
+
+          return {
+            type: defectName,
+            hourlyData: [0, 0, 0, 0, 0, 0, 0, 0],
+            total: 0,
+          };
+        }),
+      };
+    });
+
+    setData(initializedData);
+  };
 
   // Function to update a cell value
   const updateCellValue = (personIndex, defectIndex, hourIndex, value) => {
@@ -64,17 +121,28 @@ export default function Dashboard() {
 
   // Calculate grand total for a person
   const calculateGrandTotal = (personIndex) => {
-    return data[personIndex].defects.reduce(
-      (sum, defect) => sum + defect.total,
-      0
+    return (
+      data[personIndex]?.defects.reduce(
+        (sum, defect) => sum + defect.total,
+        0
+      ) || 0
     );
   };
 
+  if (loading) {
+    return (
+      <div className="p-4 max-w-6xl mx-auto text-center">
+        <p>Loading defect data...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="p-4 max-w-6xl mx-auto">
-      <h1 className="text-2xl font-bold mb-4 text-center">
+      {/* <h1 className="text-2xl font-bold mb-4 text-center">
         Defect Tracking Dashboard
-      </h1>
+      </h1> */}
+      
 
       <div className="overflow-x-auto">
         <table className="w-full border-collapse border border-gray-300">
@@ -172,242 +240,3 @@ export default function Dashboard() {
     </div>
   );
 }
-// import React, { useState } from "react";
-
-// export default function DefectTrackingDashboard() {
-//   const [data, setData] = useState([
-//     {
-//       colorCode: "Blue",
-//       name: "Arul",
-//       defects: [
-//         { type: "Clean", hourlyData: [0, 0, 0, 0, 0, 0, 0, 0], total: 0 },
-//         { type: "Trimming", hourlyData: [0, 0, 0, 0, 0, 0, 0, 0], total: 0 },
-//         { type: "Bond", hourlyData: [0, 0, 0, 0, 0, 0, 0, 0], total: 0 },
-//         { type: "Rock", hourlyData: [0, 0, 0, 0, 0, 0, 0, 0], total: 0 },
-//         { type: "Banana", hourlyData: [0, 0, 0, 0, 0, 0, 0, 0], total: 0 },
-//       ],
-//     },
-//     {
-//       colorCode: "Orange",
-//       name: "Ramu",
-//       defects: [
-//         { type: "Clean", hourlyData: [0, 0, 0, 0, 0, 0, 0, 0], total: 0 },
-//         { type: "Trimming", hourlyData: [0, 0, 0, 0, 0, 0, 0, 0], total: 0 },
-//         { type: "Bond", hourlyData: [0, 0, 0, 0, 0, 0, 0, 0], total: 0 },
-//         { type: "Rock", hourlyData: [0, 0, 0, 0, 0, 0, 0, 0], total: 0 },
-//         { type: "Banana", hourlyData: [0, 0, 0, 0, 0, 0, 0, 0], total: 0 },
-//       ],
-//     },
-//     {
-//       colorCode: "Pink",
-//       name: "Venkat",
-//       defects: [
-//         { type: "Clean", hourlyData: [0, 0, 0, 0, 0, 0, 0, 0], total: 0 },
-//         { type: "Trimming", hourlyData: [0, 0, 0, 0, 0, 0, 0, 0], total: 0 },
-//         { type: "Bond", hourlyData: [0, 0, 0, 0, 0, 0, 0, 0], total: 0 },
-//         { type: "Rock", hourlyData: [0, 0, 0, 0, 0, 0, 0, 0], total: 0 },
-//         { type: "Banana", hourlyData: [0, 0, 0, 0, 0, 0, 0, 0], total: 0 },
-//       ],
-//     },
-//     {
-//       colorCode: "Green",
-//       name: "Thiru",
-//       defects: [
-//         { type: "Clean", hourlyData: [0, 0, 0, 0, 0, 0, 0, 0], total: 0 },
-//         { type: "Trimming", hourlyData: [0, 0, 0, 0, 0, 0, 0, 0], total: 0 },
-//         { type: "Bond", hourlyData: [0, 0, 0, 0, 0, 0, 0, 0], total: 0 },
-//         { type: "Rock", hourlyData: [0, 0, 0, 0, 0, 0, 0, 0], total: 0 },
-//         { type: "Banana", hourlyData: [0, 0, 0, 0, 0, 0, 0, 0], total: 0 },
-//       ],
-//     },
-//   ]);
-
-//   // Function to update a cell value
-//   const updateCellValue = (personIndex, defectIndex, hourIndex, value) => {
-//     const newData = [...data];
-//     const numValue = parseInt(value) || 0;
-//     newData[personIndex].defects[defectIndex].hourlyData[hourIndex] = numValue;
-
-//     // Recalculate the total for this defect
-//     newData[personIndex].defects[defectIndex].total = newData[
-//       personIndex
-//     ].defects[defectIndex].hourlyData.reduce((sum, val) => sum + val, 0);
-
-//     setData(newData);
-//   };
-
-//   // Calculate grand total for a person
-//   const calculateGrandTotal = (personIndex) => {
-//     return data[personIndex].defects.reduce(
-//       (sum, defect) => sum + defect.total,
-//       0
-//     );
-//   };
-
-//   // Get color styles based on color code
-//   const getColorStyles = (colorCode) => {
-//     const colorMap = {
-//       Blue: {
-//         bg: "bg-blue-100",
-//         text: "text-blue-800",
-//         border: "border-blue-300",
-//         badge: "bg-blue-500",
-//       },
-//       Orange: {
-//         bg: "bg-orange-100",
-//         text: "text-orange-800",
-//         border: "border-orange-300",
-//         badge: "bg-orange-500",
-//       },
-//       Pink: {
-//         bg: "bg-pink-100",
-//         text: "text-pink-800",
-//         border: "border-pink-300",
-//         badge: "bg-pink-500",
-//       },
-//       Green: {
-//         bg: "bg-green-100",
-//         text: "text-green-800",
-//         border: "border-green-300",
-//         badge: "bg-green-500",
-//       },
-//     };
-
-//     return (
-//       colorMap[colorCode] || {
-//         bg: "bg-gray-100",
-//         text: "text-gray-800",
-//         border: "border-gray-300",
-//         badge: "bg-gray-500",
-//       }
-//     );
-//   };
-
-//   return (
-//     <div className="p-6 bg-gray-50 min-h-screen">
-//       <div className="max-w-6xl mx-auto bg-white rounded-xl shadow-lg overflow-hidden">
-//         <div className="bg-gradient-to-r from-blue-600 to-purple-600 px-6 py-4">
-//           <h1 className="text-2xl font-bold text-white">
-//             Defect Tracking Dashboard
-//           </h1>
-//         </div>
-
-//         <div className="overflow-x-auto">
-//           <table className="w-full">
-//             <thead>
-//               <tr className="bg-gray-100">
-//                 <th className="px-4 py-3 border-b-2 border-gray-200 text-left text-sm font-semibold text-gray-700">
-//                   Color Code
-//                 </th>
-//                 <th className="px-4 py-3 border-b-2 border-gray-200 text-left text-sm font-semibold text-gray-700">
-//                   Name
-//                 </th>
-//                 <th className="px-4 py-3 border-b-2 border-gray-200 text-left text-sm font-semibold text-gray-700">
-//                   Defect Type
-//                 </th>
-//                 {[1, 2, 3, 4, 5, 6, 7, 8].map((hour) => (
-//                   <th
-//                     key={hour}
-//                     className="px-4 py-3 border-b-2 border-gray-200 text-center text-sm font-semibold text-gray-700"
-//                   >
-//                     {hour}
-//                   </th>
-//                 ))}
-//                 <th className="px-4 py-3 border-b-2 border-gray-200 text-center text-sm font-semibold text-gray-700">
-//                   Total
-//                 </th>
-//                 <th className="px-4 py-3 border-b-2 border-gray-200 text-center text-sm font-semibold text-gray-700">
-//                   G.Total
-//                 </th>
-//               </tr>
-//             </thead>
-//             <tbody>
-//               {data.map((person, personIndex) => (
-//                 <React.Fragment key={personIndex}>
-//                   {person.defects.map((defect, defectIndex) => {
-//                     const colorStyles = getColorStyles(person.colorCode);
-//                     const isFirstDefect = defectIndex === 0;
-//                     const isLastDefect =
-//                       defectIndex === person.defects.length - 1;
-//                     const borderClass = isLastDefect ? "border-b" : "";
-
-//                     return (
-//                       <tr
-//                         key={`${personIndex}-${defectIndex}`}
-//                         className={`hover:bg-gray-50 ${defectIndex % 2 === 0 ? "bg-white" : "bg-gray-50"}`}
-//                       >
-//                         {isFirstDefect && (
-//                           <>
-//                             <td
-//                               rowSpan={person.defects.length}
-//                               className={`px-4 py-1 ${borderClass} text-center`}
-//                             >
-//                               <div
-//                                 className={`inline-flex items-center justify-center w-full h-full`}
-//                               >
-//                                 <span
-//                                   className={`inline-block w-6 h-6 rounded-full ${colorStyles.badge}`}
-//                                 ></span>
-//                                 <span
-//                                   className={`ml-2 font-medium ${colorStyles.text}`}
-//                                 >
-//                                   {person.colorCode}
-//                                 </span>
-//                               </div>
-//                             </td>
-//                             <td
-//                               rowSpan={person.defects.length}
-//                               className={`px-4 py-1 ${borderClass} font-medium`}
-//                             >
-//                               {person.name}
-//                             </td>
-//                           </>
-//                         )}
-//                         <td className={`px-4 py-1 ${borderClass}`}>
-//                           {defect.type}
-//                         </td>
-//                         {defect.hourlyData.map((value, hourIndex) => (
-//                           <td
-//                             key={hourIndex}
-//                             className={`p-0 text-center ${borderClass}`}
-//                           >
-//                             <input
-//                               type="text"
-//                               value={value || ""}
-//                               onChange={(e) =>
-//                                 updateCellValue(
-//                                   personIndex,
-//                                   defectIndex,
-//                                   hourIndex,
-//                                   e.target.value
-//                                 )
-//                               }
-//                               className="w-full py-2 px-2 text-center focus:outline-none focus:ring-1 focus:ring-blue-500 border-transparent"
-//                             />
-//                           </td>
-//                         ))}
-//                         <td
-//                           className={`px-4 py-1 text-center font-medium bg-gray-100 ${borderClass}`}
-//                         >
-//                           {defect.total}
-//                         </td>
-//                         {isFirstDefect && (
-//                           <td
-//                             rowSpan={person.defects.length}
-//                             className={`px-4 py-1 text-center font-bold ${colorStyles.bg} ${colorStyles.text}`}
-//                           >
-//                             {calculateGrandTotal(personIndex)}
-//                           </td>
-//                         )}
-//                       </tr>
-//                     );
-//                   })}
-//                 </React.Fragment>
-//               ))}
-//             </tbody>
-//           </table>
-//         </div>
-//       </div>
-//     </div>
-//   );
-// }

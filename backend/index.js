@@ -24,7 +24,9 @@ app.get("/", (req, res) => {
 
 const login = require("./src/Route/LoginRoute");
 const defectType = require("./src/Route/DefectRoute");
+const colorCode = require("./src/Route/ColorCodeRoute")
 app.use(login);
 app.use(defectType);
+app.use(colorCode);
 
 module.exports = app;
