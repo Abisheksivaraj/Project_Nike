@@ -48,7 +48,7 @@ const DrawerHeader = styled("div")(({ theme }) => ({
 const Main = styled("main", { shouldForwardProp: (prop) => prop !== "open" })(
   ({ theme, open }) => ({
     flexGrow: 1,
-    padding: theme.spacing(3),
+    padding: theme.spacing(0), // Removed padding to allow content to be at top
     transition: theme.transitions.create("margin", {
       easing: theme.transitions.easing.sharp,
       duration: theme.transitions.duration.leavingScreen,
@@ -64,30 +64,7 @@ const Main = styled("main", { shouldForwardProp: (prop) => prop !== "open" })(
   })
 );
 
-function DemoPageContent({ pathname }) {
-  return (
-    <Box
-      sx={{
-        py: 4,
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        textAlign: "center",
-      }}
-    >
-      <Typography>Dashboard content for {pathname}</Typography>
-    </Box>
-  );
-}
-
-DemoPageContent.propTypes = {
-  pathname: PropTypes.string.isRequired,
-};
-
 function AdminPage(props) {
-  const { window } = props;
-  const router = useDemoRouter("/dashboard");
-  const demoWindow = window !== undefined ? window() : undefined;
   const [open, setOpen] = React.useState(true);
 
   return (
@@ -126,16 +103,11 @@ function AdminPage(props) {
           icon: <VerifiedUserIcon />,
         },
       ]}
-      router={router}
-      theme={demoTheme}
-      window={demoWindow}
     >
       <DashboardLayout>
         <Main open={open}>
-          <DrawerHeader />
+          {/* Removed DrawerHeader to position content at top */}
           <Routes>
-            {/* Add a redirect from root path to dashboard */}
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/master/issue-master" element={<IssueMaster />} />
             <Route
@@ -144,8 +116,6 @@ function AdminPage(props) {
             />
             <Route path="/master/employee-master" element={<AddEmployee />} />
             <Route path="/admin-process" element={<AdminProcess />} />
-            {/* Add a catch-all route to handle any undefined routes */}
-            <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </Main>
       </DashboardLayout>
@@ -154,7 +124,7 @@ function AdminPage(props) {
 }
 
 AdminPage.propTypes = {
-  window: PropTypes.func,
+  pathname: PropTypes.string,
 };
 
 export default AdminPage;
