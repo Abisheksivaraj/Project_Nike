@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Box,
   Button,
@@ -30,6 +30,7 @@ import {
   useTheme,
   alpha,
   TablePagination,
+  CircularProgress,
 } from "@mui/material";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 import PersonAddIcon from "@mui/icons-material/PersonAdd";
@@ -38,19 +39,8 @@ import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import PeopleAltIcon from "@mui/icons-material/PeopleAlt";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-
-const colorOptions = [
-  { value: "#f44336", label: "Red" },
-  { value: "#e91e63", label: "Pink" },
-  { value: "#9c27b0", label: "Purple" },
-  { value: "#673ab7", label: "Deep Purple" },
-  { value: "#3f51b5", label: "Indigo" },
-  { value: "#2196f3", label: "Blue" },
-  { value: "#03a9f4", label: "Light Blue" },
-  { value: "#00bcd4", label: "Cyan" },
-  { value: "#009688", label: "Teal" },
-  { value: "#4caf50", label: "Green" },
-];
+import RefreshIcon from "@mui/icons-material/Refresh";
+import { api } from "../../apiConfig";
 
 const AddEmployee = () => {
   const theme = useTheme();
@@ -58,17 +48,85 @@ const AddEmployee = () => {
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
-    colorCode: "",
+    hexCode: "",
     image: null,
   });
   const [previewImage, setPreviewImage] = useState(null);
   const [employees, setEmployees] = useState([]);
   const [editMode, setEditMode] = useState(false);
   const [editEmployeeId, setEditEmployeeId] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // State for color options from API
+  const [colorOptions, setColorOptions] = useState([]);
+  const [colorsLoading, setColorsLoading] = useState(false);
+  const [colorsError, setColorsError] = useState(null);
 
   // Pagination state
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(5);
+
+  // Fetch employees and colors when component mounts
+  useEffect(() => {
+    fetchEmployees();
+    fetchColors();
+  }, []);
+
+  // Fetch colors from your API endpoint
+  const fetchColors = async () => {
+    try {
+      setColorsLoading(true);
+      setColorsError(null);
+
+      // Call the API endpoint to get colors
+      const response = await api.get("/get-Color");
+
+      // Transform the API response to the required format
+      const formattedColors = response.data.map((color) => ({
+        value: color.hexCode,
+        label: color.colorName,
+        id: color._id,
+      }));
+
+      if (formattedColors && formattedColors.length > 0) {
+        setColorOptions(formattedColors);
+      } else {
+        console.warn("API returned empty color list");
+        setColorOptions([]);
+      }
+    } catch (error) {
+      console.error("Error fetching colors:", error);
+      setColorsError("Failed to load color options.");
+      setColorOptions([]);
+    } finally {
+      setColorsLoading(false);
+    }
+  };
+
+  const fetchEmployees = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await api.get("/getEmployee");
+
+      // Transform the data from API format to component format
+      const formattedEmployees = response.data.data.map((emp) => ({
+        id: emp._id,
+        firstName: emp.firstName,
+        lastName: emp.lastName,
+        colorCode: emp.colorCode,
+        imageSrc: emp.image || "",
+      }));
+
+      setEmployees(formattedEmployees);
+    } catch (error) {
+      console.error("Error fetching employees:", error);
+      setError("Failed to load employees. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleChangePage = (event, newPage) => {
     setPage(newPage);
@@ -108,61 +166,105 @@ const AddEmployee = () => {
     }
   };
 
-  const handleSubmit = (e) => {
+  const fileToBase64 = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = (error) => reject(error);
+    });
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     // Validate form
-    if (!formData.firstName || !formData.lastName || !formData.colorCode) {
+    if (!formData.firstName || !formData.lastName || !formData.hexCode) {
       alert("Please fill in all required fields");
       return;
     }
 
-    if (editMode && editEmployeeId) {
-      // Update existing employee
-      const updatedEmployees = employees.map((employee) =>
-        employee.id === editEmployeeId
-          ? {
-              ...employee,
-              firstName: formData.firstName,
-              lastName: formData.lastName,
-              colorCode: formData.colorCode,
-              imageSrc: previewImage || employee.imageSrc,
-            }
-          : employee
+    try {
+      // Get the color name from the selected hex code
+      const selectedColor = colorOptions.find(
+        (c) => c.value === formData.hexCode
       );
+      const colorName = selectedColor ? selectedColor.label : "";
 
-      setEmployees(updatedEmployees);
-      setEditMode(false);
-      setEditEmployeeId(null);
-    } else {
-      // Create a new employee object with an ID
-      const newEmployee = {
-        id: Date.now(), // Simple unique ID generation
+      // Create data object to send
+      const employeeData = {
         firstName: formData.firstName,
         lastName: formData.lastName,
-        colorCode: formData.colorCode,
-        imageSrc: previewImage || "", // Store the image as base64 string
+        colorCode: formData.hexCode,
+        colorName: colorName, // Add the colorName field
       };
 
-      // Add to employees array
-      setEmployees([...employees, newEmployee]);
+      // If there's an image, convert it to base64
+      if (formData.image) {
+        employeeData.image = await fileToBase64(formData.image);
+      } else {
+        employeeData.image = ""; // Empty string if no image
+      }
+
+      if (editMode && editEmployeeId) {
+        // Update existing employee
+        await api.put(`/updateEmployee/${editEmployeeId}`, employeeData);
+
+        // Update local state
+        const updatedEmployees = employees.map((employee) =>
+          employee.id === editEmployeeId
+            ? {
+                ...employee,
+                firstName: formData.firstName,
+                lastName: formData.lastName,
+                colorCode: formData.hexCode,
+                imageSrc: previewImage || employee.imageSrc,
+              }
+            : employee
+        );
+
+        setEmployees(updatedEmployees);
+        setEditMode(false);
+        setEditEmployeeId(null);
+      } else {
+        // Create a new employee via API
+        const response = await api.post("/addEmployee", employeeData);
+
+        // Add returned employee (with DB-generated ID) to state
+        const newEmployee = {
+          id: response.data.data._id || response.data.data.id,
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          colorCode: formData.hexCode,
+          imageSrc: previewImage || "",
+        };
+
+        // Add to employees array
+        setEmployees([...employees, newEmployee]);
+      }
+
+      // Switch to table view to show the newly added/edited employee
+      setView("table");
+
+      // Clear form after submission
+      resetForm();
+    } catch (error) {
+      console.error("Error saving employee:", error);
+      alert("Failed to save employee data. Please try again.");
     }
-
-    // Switch to table view to show the newly added/edited employee
-    setView("table");
-
-    // Clear form after submission
-    setFormData({
-      firstName: "",
-      lastName: "",
-      colorCode: "",
-      image: null,
-    });
-    setPreviewImage(null);
   };
 
-  const handleDeleteEmployee = (id) => {
-    setEmployees(employees.filter((employee) => employee.id !== id));
+  const handleDeleteEmployee = async (id) => {
+    try {
+      // Call the API to delete the employee
+      await api.delete(`/deleteEmployee/${id}`);
+
+      // Update local state only after successful API call
+      setEmployees(employees.filter((employee) => employee.id !== id));
+    } catch (error) {
+      console.error("Error deleting employee:", error);
+      alert("Failed to delete employee. Please try again.");
+    }
   };
 
   const handleEditEmployee = (employee) => {
@@ -170,7 +272,7 @@ const AddEmployee = () => {
     setFormData({
       firstName: employee.firstName,
       lastName: employee.lastName,
-      colorCode: employee.colorCode,
+      hexCode: employee.colorCode,
       image: null, // We can't directly set the file object
     });
 
@@ -185,6 +287,7 @@ const AddEmployee = () => {
     setView("form");
   };
 
+  // Helper function to get color label from value
   const getColorLabel = (colorValue) => {
     const color = colorOptions.find((c) => c.value === colorValue);
     return color ? color.label : colorValue;
@@ -194,7 +297,7 @@ const AddEmployee = () => {
     setFormData({
       firstName: "",
       lastName: "",
-      colorCode: "",
+      hexCode: "",
       image: null,
     });
     setPreviewImage(null);
@@ -239,6 +342,7 @@ const AddEmployee = () => {
                 sx={{
                   borderRadius: 2,
                   px: 3,
+                  backgroundColor: "#045F85",
                 }}
               >
                 Add Employee
@@ -254,6 +358,8 @@ const AddEmployee = () => {
                 sx={{
                   borderRadius: 2,
                   px: 3,
+                  backgroundColor: "#045F85",
+                  color: "white",
                 }}
               >
                 Employee Table
@@ -268,7 +374,7 @@ const AddEmployee = () => {
           <Box
             sx={{
               p: 3,
-              background: `linear-gradient(45deg, ${theme.palette.primary.main} 30%, ${theme.palette.primary.dark} 90%)`,
+              background: "#045F85",
               color: "white",
             }}
           >
@@ -313,42 +419,120 @@ const AddEmployee = () => {
                   />
                 </Grid>
 
-                <Grid item xs={12} sx={{width:"10rem"}}>
+                <Grid item xs={12}>
                   <FormControl
                     fullWidth
                     margin="normal"
                     required
                     variant="outlined"
                   >
-                    <InputLabel id="color-code-label">Color Code</InputLabel>
+                    <InputLabel id="hex-code-label">Color Code</InputLabel>
                     <Select
-                      labelId="color-code-label"
-                      id="colorCode"
-                      name="colorCode"
-                      value={formData.colorCode}
+                      labelId="hex-code-label"
+                      id="hexCode"
+                      name="hexCode"
+                      value={formData.hexCode}
                       onChange={handleInputChange}
                       label="Color Code"
+                      disabled={colorsLoading}
+                      renderValue={(selected) => {
+                        const selectedColor = colorOptions.find(
+                          (c) => c.value === selected
+                        );
+
+                        return (
+                          <Box sx={{ display: "flex", alignItems: "center" }}>
+                            <Box
+                              component="span"
+                              sx={{
+                                width: 20,
+                                height: 20,
+                                borderRadius: 1,
+                                bgcolor: selected,
+                                mr: 1,
+                                border: "1px solid rgba(0,0,0,0.1)",
+                              }}
+                            />
+                            {selectedColor
+                              ? `${selectedColor.label} (${selected})`
+                              : selected}
+                          </Box>
+                        );
+                      }}
                     >
-                      {colorOptions.map((color) => (
-                        <MenuItem
-                          key={color.value}
-                          value={color.value}
-                          sx={{
-                            "&::before": {
-                              content: '""',
-                              display: "inline-block",
-                              width: "20px",
-                              height: "20px",
-                              backgroundColor: color.value,
-                              marginRight: "10px",
-                              borderRadius: "3px",
-                            },
-                          }}
-                        >
-                          {color.label}
+                      {colorsLoading ? (
+                        <MenuItem value="">
+                          <Box sx={{ display: "flex", alignItems: "center" }}>
+                            <CircularProgress size={20} sx={{ mr: 1 }} />
+                            Loading colors...
+                          </Box>
                         </MenuItem>
-                      ))}
+                      ) : colorOptions.length === 0 ? (
+                        <MenuItem value="" disabled>
+                          No colors available
+                        </MenuItem>
+                      ) : (
+                        colorOptions.map((color) => (
+                          <MenuItem
+                            key={color.id}
+                            value={color.value}
+                            sx={{
+                              display: "flex",
+                              alignItems: "center",
+                              paddingLeft: "10px",
+                            }}
+                          >
+                            <Box
+                              sx={{
+                                width: 20,
+                                height: 20,
+                                backgroundColor: color.value,
+                                borderRadius: "3px",
+                                marginRight: 1,
+                                border: "1px solid rgba(0,0,0,0.1)",
+                                display: "inline-block",
+                              }}
+                            />
+                            {color.label} ({color.value})
+                          </MenuItem>
+                        ))
+                      )}
                     </Select>
+
+                    {/* Color information and refresh button */}
+                    <Box
+                      sx={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        mt: 1,
+                      }}
+                    >
+                      <Typography variant="caption" color="text.secondary">
+                        {colorsLoading
+                          ? "Loading colors..."
+                          : `${colorOptions.length} colors available`}
+                      </Typography>
+                      <Tooltip title="Refresh Colors">
+                        <IconButton
+                          size="small"
+                          onClick={fetchColors}
+                          disabled={colorsLoading}
+                        >
+                          <RefreshIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
+
+                    {colorsError && (
+                      <Typography
+                        variant="caption"
+                        color="error"
+                        sx={{ mt: 1 }}
+                      >
+                        {colorsError}
+                      </Typography>
+                    )}
                   </FormControl>
                 </Grid>
 
@@ -358,9 +542,9 @@ const AddEmployee = () => {
                       border: "2px dashed",
                       borderColor: alpha(theme.palette.primary.main, 0.3),
                       borderRadius: 2,
-                      
                       textAlign: "center",
                       backgroundColor: alpha(theme.palette.primary.main, 0.03),
+                      padding: 3,
                       transition: "all 0.2s",
                       "&:hover": {
                         borderColor: theme.palette.primary.main,
@@ -375,7 +559,7 @@ const AddEmployee = () => {
                       variant="text"
                       component="label"
                       startIcon={<CloudUploadIcon />}
-                      sx={{  }}
+                      sx={{ mb: 2 }}
                     >
                       Upload Profile Image
                       <input
@@ -436,7 +620,7 @@ const AddEmployee = () => {
                       variant="contained"
                       color="primary"
                       size="large"
-                      sx={{ px: 4 }}
+                      sx={{ px: 4, backgroundColor: "#045F85" }}
                     >
                       {editMode ? "Update Employee" : "Add Employee"}
                     </Button>
@@ -451,7 +635,7 @@ const AddEmployee = () => {
           <Box
             sx={{
               p: 3,
-              background: `linear-gradient(45deg, ${theme.palette.primary.main} 30%, ${theme.palette.primary.dark} 90%)`,
+              background: "#045F85",
               color: "white",
               display: "flex",
               justifyContent: "space-between",
@@ -467,10 +651,40 @@ const AddEmployee = () => {
                 {employees.length === 1 ? "employee" : "employees"} total
               </Typography>
             </Box>
+            <Tooltip title="Refresh">
+              <IconButton onClick={fetchEmployees} sx={{ color: "white" }}>
+                <RefreshIcon />
+              </IconButton>
+            </Tooltip>
           </Box>
 
-          <CardContent sx={{ p: 0 , height:"20.5rem"}}>
-            {employees.length === 0 ? (
+          <CardContent sx={{ p: 0, minHeight: "20.5rem" }}>
+            {loading ? (
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  height: "20.5rem",
+                }}
+              >
+                <CircularProgress />
+              </Box>
+            ) : error ? (
+              <Box sx={{ textAlign: "center", py: 5 }}>
+                <Typography color="error" gutterBottom>
+                  {error}
+                </Typography>
+                <Button
+                  variant="outlined"
+                  startIcon={<RefreshIcon />}
+                  onClick={fetchEmployees}
+                  sx={{ mt: 2 }}
+                >
+                  Try Again
+                </Button>
+              </Box>
+            ) : employees.length === 0 ? (
               <Box sx={{ textAlign: "center", py: 5 }}>
                 <Box
                   sx={{
@@ -493,7 +707,12 @@ const AddEmployee = () => {
                 <Typography
                   variant="body2"
                   color="text.secondary"
-                  sx={{ mb: 3, maxWidth: 400, mx: "auto" }}
+                  sx={{
+                    mb: 3,
+                    maxWidth: 400,
+                    mx: "auto",
+                    backgroundColor: "#045F85",
+                  }}
                 >
                   Your employee list is empty. Add your first team member by
                   clicking the "Add Employee" button.
@@ -570,9 +789,11 @@ const AddEmployee = () => {
                                     borderRadius: "3px",
                                     marginRight: 1,
                                     boxShadow: 1,
+                                    border: "1px solid rgba(0,0,0,0.1)",
                                   }}
                                 />
-                                {getColorLabel(employee.colorCode)}
+                                {getColorLabel(employee.colorCode)} (
+                                {employee.colorCode})
                               </Box>
                             </TableCell>
                             <TableCell align="right">

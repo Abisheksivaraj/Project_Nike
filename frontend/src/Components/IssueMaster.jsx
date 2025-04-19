@@ -39,7 +39,7 @@ const IssueMaster = () => {
       return;
     }
 
-    if (defectTypes.length >= 7) {
+    if (defectTypes.length >= 15) {
       console.log("Max defect types reached");
       setShowAlert(true);
       setTimeout(() => setShowAlert(false), 3000);
@@ -172,7 +172,7 @@ const IssueMaster = () => {
               </button>
             </div>
             <div className="mt-2 text-sm text-gray-500">
-              Maximum 7 defect types allowed
+              Maximum 15 defect types allowed
             </div>
           </div>
 
@@ -183,13 +183,13 @@ const IssueMaster = () => {
                 Defect Types Used
               </span>
               <span className="text-sm font-medium text-gray-700">
-                {defectTypes.length}/7
+                {defectTypes.length}/15
               </span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2.5">
               <div
                 className="bg-blue-600 h-2.5 rounded-full"
-                style={{ width: `${(defectTypes.length / 7) * 100}%` }}
+                style={{ width: `${(defectTypes.length / 15) * 100}%` }}
               ></div>
             </div>
           </div>
@@ -263,7 +263,7 @@ const IssueMaster = () => {
             </div>
             <div>
               <p className="font-bold">Warning</p>
-              <p className="text-sm">You can't add more than 7 defect types!</p>
+              <p className="text-sm">You can't add more than 15 defect types!</p>
             </div>
           </div>
         </div>
