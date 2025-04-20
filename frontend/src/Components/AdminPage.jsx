@@ -38,6 +38,7 @@ import ExpandLess from "@mui/icons-material/ExpandLess";
 import ExpandMore from "@mui/icons-material/ExpandMore";
 import AccountCircleIcon from "@mui/icons-material/AccountCircle";
 import LogoutIcon from "@mui/icons-material/Logout";
+import CopyrightIcon from "@mui/icons-material/Copyright";
 
 // Pages
 import Dashboard from "./Dashboard";
@@ -55,6 +56,8 @@ const openedMixin = (theme) => ({
     duration: theme.transitions.duration.enteringScreen,
   }),
   overflowX: "hidden",
+  display: "flex",
+  flexDirection: "column",
 });
 
 const closedMixin = (theme) => ({
@@ -67,6 +70,8 @@ const closedMixin = (theme) => ({
   [theme.breakpoints.up("sm")]: {
     width: `calc(${theme.spacing(8)} + 1px)`,
   },
+  display: "flex",
+  flexDirection: "column",
 });
 
 const DrawerHeader = styled("div")(({ theme }) => ({
@@ -76,6 +81,17 @@ const DrawerHeader = styled("div")(({ theme }) => ({
   padding: theme.spacing(0, 1),
   // necessary for content to be below app bar
   ...theme.mixins.toolbar,
+}));
+
+const DrawerFooter = styled("div")(({ theme }) => ({
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: theme.spacing(2),
+  marginTop: "auto",
+  backgroundColor: "#f5f5f5",
+  borderTop: "1px solid #e0e0e0",
 }));
 
 const CustomAppBar = styled(AppBar, {
@@ -137,6 +153,7 @@ function AdminPage() {
   const [adminMasterOpen, setAdminMasterOpen] = React.useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+  const currentYear = new Date().getFullYear();
 
   // Profile menu state
   const [profileAnchorEl, setProfileAnchorEl] = React.useState(null);
@@ -307,7 +324,7 @@ function AdminPage() {
           </Box>
         </DrawerHeader>
         <Divider />
-        <List>
+        <List sx={{ flexGrow: 1, overflowY: "auto" }}>
           {navigationItems.map((item) => {
             if (item.isSubmenu) {
               return (
@@ -372,6 +389,27 @@ function AdminPage() {
             }
           })}
         </List>
+
+        {/* Footer Section - Only render when sidebar is open */}
+        {open && (
+          <DrawerFooter>
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                mb: 1,
+              }}
+            >
+              <CopyrightIcon sx={{ fontSize: 16, mr: 0.5, color: "#045F85" }} />
+              <Typography variant="body2" color="text.secondary">
+                {currentYear} Fairway Enterprises
+              </Typography>
+            </Box>
+            <Typography variant="caption" color="text.secondary" align="center">
+              All Rights Reserved
+            </Typography>
+          </DrawerFooter>
+        )}
       </CustomDrawer>
       <Main open={open}>
         <DrawerHeader />
