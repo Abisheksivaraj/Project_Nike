@@ -10,7 +10,7 @@ import {
   IconButton,
 } from "@mui/material";
 import { Visibility, VisibilityOff, Lock, Email } from "@mui/icons-material";
-import login from "../assets/loginBg.jpg";
+import login from "../assets/fw1.jpg";
 import { api } from "../../apiConfig";
 import { toast, ToastContainer } from "react-toastify";
 import { useNavigate } from "react-router-dom";
@@ -79,17 +79,23 @@ const Login = () => {
           opacity: 0.9,
         }}
       >
-        <Paper elevation={6} sx={{ p: 4, borderRadius: 3 }}>
+        <Paper
+          elevation={6}
+          sx={{ p: 4, borderRadius: 3, color: "#045F85", fontWeight: "bold" }}
+        >
           <Typography variant="h4" gutterBottom textAlign="center">
-            Welcome Back
+            FAIRWAY ENTERPRISES
           </Typography>
           <Typography
             variant="subtitle1"
             color="text.secondary"
             textAlign="center"
             mb={3}
+            sx={{
+              fontWeight: "bold",
+            }}
           >
-            Please login to your account
+            Admin Login
           </Typography>
           <Box component="form" onSubmit={handleSubmit}>
             <TextField
@@ -136,7 +142,12 @@ const Login = () => {
               type="submit"
               fullWidth
               variant="contained"
-              sx={{ mt: 3, py: 1.5, fontWeight: "bold" }}
+              sx={{
+                mt: 3,
+                py: 1.5,
+                fontWeight: "bold",
+                backgroundColor: "#045F85",
+              }}
             >
               Login
             </Button>

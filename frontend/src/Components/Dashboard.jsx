@@ -5,17 +5,22 @@ export default function Dashboard() {
   const [data, setData] = useState([]);
   const [defectTypes, setDefectTypes] = useState([]);
   const [employees, setEmployees] = useState([]);
+  const [defectIdentifyData, setDefectIdentifyData] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [topDefects, setTopDefects] = useState([]);
 
   // Function to fetch defect types
   const fetchDefectTypes = async () => {
     try {
       const response = await api.get("/get-Defect");
       const defectData = response.data;
+      console.log("Fetched defect types:", defectData);
       setDefectTypes(defectData);
       return defectData;
     } catch (error) {
       console.error("Error fetching defect types:", error);
+      setError("Failed to fetch defect types");
       return [];
     }
   };
@@ -24,11 +29,36 @@ export default function Dashboard() {
   const fetchEmployees = async () => {
     try {
       const response = await api.get("/getEmployee");
-      const employeeData = response.data.data;
+      // Make sure to handle both response.data and response.data.data patterns
+      let employeeData = response.data;
+      if (employeeData && employeeData.data) {
+        employeeData = employeeData.data;
+      }
+      console.log("Fetched employees:", employeeData);
       setEmployees(employeeData);
       return employeeData;
     } catch (error) {
       console.error("Error fetching employees:", error);
+      setError("Failed to fetch employees");
+      return [];
+    }
+  };
+
+  // Function to fetch defect identification data
+  const fetchDefectIdentifyData = async () => {
+    try {
+      const response = await api.get("/get-DefectIdentify");
+      // Make sure to handle both response.data and response.data.data patterns
+      let defectIdentifyData = response.data;
+      if (defectIdentifyData && defectIdentifyData.data) {
+        defectIdentifyData = defectIdentifyData.data;
+      }
+      console.log("Fetched defect identify data:", defectIdentifyData);
+      setDefectIdentifyData(defectIdentifyData);
+      return defectIdentifyData;
+    } catch (error) {
+      console.error("Error fetching defect identification data:", error);
+      setError("Failed to fetch defect identification data");
       return [];
     }
   };
@@ -37,20 +67,26 @@ export default function Dashboard() {
   const fetchAllData = async () => {
     try {
       setLoading(true);
-      const [defectData, employeeData] = await Promise.all([
+      setError(null);
+
+      const [defectData, employeeData, defectIdentifyData] = await Promise.all([
         fetchDefectTypes(),
         fetchEmployees(),
+        fetchDefectIdentifyData(),
       ]);
+
+      console.log("All data fetched successfully");
 
       // If data is already initialized, just update defect types and employees
       if (data.length > 0) {
-        updateDashboardData(defectData, employeeData);
+        updateDashboardData(defectData, employeeData, defectIdentifyData);
       } else {
         // Initialize dashboard data with fetched defect types and employees
-        initializeDashboardData(defectData, employeeData);
+        initializeDashboardData(defectData, employeeData, defectIdentifyData);
       }
     } catch (error) {
       console.error("Error fetching data:", error);
+      setError("Failed to fetch dashboard data");
     } finally {
       setLoading(false);
     }
@@ -58,12 +94,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchAllData();
-
-    const refreshInterval = setInterval(() => {
-      fetchAllData();
-    }, 3000);
-
-    return () => clearInterval(refreshInterval);
+    // Auto-refresh has been removed
   }, []);
 
   // Helper function to get color name from color code
@@ -90,16 +121,216 @@ export default function Dashboard() {
     };
 
     // Check if colorCode exactly matches a key (case-insensitive)
-    const lowerCode = colorCode.toLowerCase();
+    const lowerCode = (colorCode || "").toLowerCase();
     if (colorMap[lowerCode]) {
       return colorMap[lowerCode];
     }
 
     // Default to the original code if no match
-    return colorCode;
+    return colorCode || "Default";
   };
 
-  const updateDashboardData = (defectData, employeeData) => {
+  // Function to map createdAt hour to column index (1-8)
+  const mapHourToColumnIndex = (createdAtDate) => {
+    if (!createdAtDate) return null;
+
+    try {
+      const date = new Date(createdAtDate);
+      if (isNaN(date.getTime())) {
+        console.error("Invalid date:", createdAtDate);
+        return null;
+      }
+
+      const hour = date.getHours();
+      console.log(`Date: ${date}, Hour: ${hour}`);
+
+      // Map hours to columns 1-8
+      const hourColumnMap = {
+        9: 1, // 9 AM maps to column 1
+        10: 2, // 10 AM maps to column 2
+        11: 3, // and so on...
+        12: 4,
+        13: 5,
+        14: 6,
+        15: 7,
+        16: 8,
+      };
+
+      return hourColumnMap[hour] !== undefined ? hourColumnMap[hour] : null;
+    } catch (error) {
+      console.error("Error parsing date:", error);
+      return null;
+    }
+  };
+
+  // Function to find employee ID from employee name
+  const findEmployeeIdByName = (employeeName, employeeData) => {
+    if (!employeeName || !employeeData || !employeeData.length) return null;
+
+    // Try to find by exact name match first
+    const employee = employeeData.find((emp) => {
+      const fullName = `${emp.firstName || ""} ${emp.lastName || ""}`.trim();
+      return fullName === employeeName;
+    });
+
+    if (employee) return employee._id;
+
+    // If no exact match, try to find by partial match
+    const partialMatch = employeeData.find((emp) => {
+      const fullName = `${emp.firstName || ""} ${emp.lastName || ""}`.trim();
+      return employeeName.includes(fullName) || fullName.includes(employeeName);
+    });
+
+    return partialMatch ? partialMatch._id : null;
+  };
+
+  // Function to count defects for each employee and defect type by hour
+  const processDefectCounts = (
+    employeeData,
+    defectData,
+    defectIdentifyData
+  ) => {
+    console.log("Processing defect counts...");
+    console.log(`Employee count: ${employeeData.length}`);
+    console.log(`Defect type count: ${defectData.length}`);
+    console.log(`Defect identify data count: ${defectIdentifyData.length}`);
+
+    // Early return if any data is empty
+    if (
+      !employeeData.length ||
+      !defectData.length ||
+      !defectIdentifyData.length
+    ) {
+      console.warn("Some data is empty, returning empty counts");
+      return {};
+    }
+
+    // Initialize counts for each employee and defect type
+    const counts = {};
+    let processedItems = 0;
+    let skippedItems = 0;
+
+    // Initialize structure for each employee
+    employeeData.forEach((emp) => {
+      const employeeId = emp._id;
+      if (!employeeId) {
+        console.warn("Employee missing _id:", emp);
+        return;
+      }
+
+      counts[employeeId] = {};
+
+      // Initialize counts for each defect type
+      defectData.forEach((defect) => {
+        const defectName =
+          defect.defectName || defect.name || defect.type || "Unknown";
+        counts[employeeId][defectName] = [0, 0, 0, 0, 0, 0, 0, 0]; // 8 hours
+      });
+    });
+
+    // Process defect identify data considering the schema structure
+    defectIdentifyData.forEach((item, index) => {
+      // Debug the first few items
+      if (index < 3) {
+        console.log(`Sample defect item ${index}:`, item);
+      }
+
+      // Extract values from the correct schema fields
+      const employeeName = item.EmployeeName;
+      const defectName = item.defectName;
+      const defectCount = parseInt(item.defectCount) || 1; // Default to 1 if not specified
+
+      // Find the employee ID from the name
+      const employeeId = findEmployeeIdByName(employeeName, employeeData);
+
+      // Extract and map the timestamp from createdAt
+      const columnIndex = mapHourToColumnIndex(item.createdAt);
+
+      // Only process if we have a valid hour mapping and the employee and defect exist
+      if (columnIndex === null) {
+        skippedItems++;
+        if (index < 10)
+          console.log(`Skipped item ${index}: Invalid hour/column mapping`);
+        return;
+      }
+
+      if (!employeeId || !counts[employeeId]) {
+        skippedItems++;
+        if (index < 10)
+          console.log(
+            `Skipped item ${index}: Employee ${employeeName} (ID: ${employeeId}) not found`
+          );
+        return;
+      }
+
+      if (!counts[employeeId][defectName]) {
+        skippedItems++;
+        if (index < 10)
+          console.log(
+            `Skipped item ${index}: Defect type ${defectName} not found for employee ${employeeName}`
+          );
+        return;
+      }
+
+      // Subtract 1 from columnIndex since array is zero-indexed
+      counts[employeeId][defectName][columnIndex - 1] += defectCount;
+      processedItems++;
+
+      if (index < 10) {
+        console.log(
+          `Processed item ${index}: counts[${employeeId}][${defectName}][${columnIndex - 1}] = ${counts[employeeId][defectName][columnIndex - 1]}`
+        );
+      }
+    });
+
+    console.log(
+      `Processed ${processedItems} items, skipped ${skippedItems} items`
+    );
+    return counts;
+  };
+
+  // Function to calculate top 3 defect types per day
+  const calculateTopDefects = (data) => {
+    // Create an object to store totals for each defect type
+    const defectTotals = {};
+
+    // Iterate through each person and their defects
+    data.forEach((person) => {
+      person.defects.forEach((defect) => {
+        const defectType = defect.type;
+
+        // If this defect type doesn't exist in our totals object yet, initialize it
+        if (!defectTotals[defectType]) {
+          defectTotals[defectType] = 0;
+        }
+
+        // Add the total defects for this defect type
+        defectTotals[defectType] += defect.total;
+      });
+    });
+
+    // Convert to array and sort by total in descending order
+    const sortedDefects = Object.entries(defectTotals)
+      .map(([type, total]) => ({ type, total }))
+      .sort((a, b) => b.total - a.total);
+
+    // Return the top 3 (or fewer if less than 3 types exist)
+    return sortedDefects.slice(0, 3);
+  };
+
+  const updateDashboardData = (
+    defectData,
+    employeeData,
+    defectIdentifyData
+  ) => {
+    console.log("Updating dashboard data...");
+    const defectCounts = processDefectCounts(
+      employeeData,
+      defectData,
+      defectIdentifyData
+    );
+
+    console.log("Defect counts processed, updating UI");
     const newData = [...data];
 
     // Update existing data with new employees if needed
@@ -121,10 +352,17 @@ export default function Dashboard() {
         defects: defectData.map((defect) => {
           const defectName =
             defect.defectName || defect.name || defect.type || "Unknown";
+
+          // Get hourly data from defect counts if available
+          const hourlyData = defectCounts[employee._id]?.[defectName] || [
+            0, 0, 0, 0, 0, 0, 0, 0,
+          ];
+          const total = hourlyData.reduce((sum, val) => sum + val, 0);
+
           return {
             type: defectName,
-            hourlyData: [0, 0, 0, 0, 0, 0, 0, 0],
-            total: 0,
+            hourlyData: hourlyData,
+            total: total,
           };
         }),
       });
@@ -143,7 +381,7 @@ export default function Dashboard() {
         newData[index].image = updatedEmployee.image || "";
       }
 
-      // Update defect types
+      // Update defect types and their counts
       const existingDefects = {};
       person.defects.forEach((defect) => {
         existingDefects[defect.type] = defect;
@@ -153,25 +391,53 @@ export default function Dashboard() {
         const defectName =
           defect.defectName || defect.name || defect.type || "Unknown";
 
-        // If this defect type already exists, preserve its data
+        // Get hourly data from defect counts if available
+        const hourlyData = defectCounts[person.id]?.[defectName] || [
+          0, 0, 0, 0, 0, 0, 0, 0,
+        ];
+        const total = hourlyData.reduce((sum, val) => sum + val, 0);
+
+        // If this defect type already exists, update its data
         if (existingDefects[defectName]) {
-          return existingDefects[defectName];
+          return {
+            ...existingDefects[defectName],
+            hourlyData: hourlyData,
+            total: total,
+          };
         }
 
         // Otherwise create a new defect entry
         return {
           type: defectName,
-          hourlyData: [0, 0, 0, 0, 0, 0, 0, 0],
-          total: 0,
+          hourlyData: hourlyData,
+          total: total,
         };
       });
     });
 
+    console.log("Dashboard data updated with new counts");
     setData(newData);
+
+    // Calculate and set top defects
+    const topDefectsList = calculateTopDefects(newData);
+    setTopDefects(topDefectsList);
   };
 
   // Initialize dashboard data with dynamic defect types and employees
-  const initializeDashboardData = (defectData, employeeData) => {
+  const initializeDashboardData = (
+    defectData,
+    employeeData,
+    defectIdentifyData
+  ) => {
+    console.log("Initializing dashboard data...");
+    // Process defect counts
+    const defectCounts = processDefectCounts(
+      employeeData,
+      defectData,
+      defectIdentifyData
+    );
+    console.log("Initial defect counts processed");
+
     // Create data structure with dynamic defect types and employees
     const initializedData = employeeData.map((employee) => {
       return {
@@ -187,16 +453,31 @@ export default function Dashboard() {
           const defectName =
             defect.defectName || defect.name || defect.type || "Unknown";
 
+          // Get hourly data from defect counts if available
+          const hourlyData = defectCounts[employee._id]?.[defectName] || [
+            0, 0, 0, 0, 0, 0, 0, 0,
+          ];
+          const total = hourlyData.reduce((sum, val) => sum + val, 0);
+
           return {
             type: defectName,
-            hourlyData: [0, 0, 0, 0, 0, 0, 0, 0],
-            total: 0,
+            hourlyData: hourlyData,
+            total: total,
           };
         }),
       };
     });
 
+    console.log(
+      "Dashboard data initialized:",
+      initializedData.length,
+      "employees"
+    );
     setData(initializedData);
+
+    // Calculate and set top defects
+    const topDefectsList = calculateTopDefects(initializedData);
+    setTopDefects(topDefectsList);
   };
 
   // Function to update a cell value
@@ -211,6 +492,10 @@ export default function Dashboard() {
     ].defects[defectIndex].hourlyData.reduce((sum, val) => sum + val, 0);
 
     setData(newData);
+
+    // Recalculate top defects whenever data changes
+    const topDefectsList = calculateTopDefects(newData);
+    setTopDefects(topDefectsList);
   };
 
   // Calculate grand total for a person
@@ -237,7 +522,7 @@ export default function Dashboard() {
       gray: "#F3F4F6",
     };
 
-    const lowerColorCode = colorCode.toLowerCase();
+    const lowerColorCode = (colorCode || "").toLowerCase();
 
     // If it's a color name in our map, use the mapped color
     if (colorMap[lowerColorCode]) {
@@ -245,7 +530,7 @@ export default function Dashboard() {
     }
 
     // Otherwise, use the color value directly (should be hex, rgb, etc.)
-    return lowerColorCode;
+    return lowerColorCode || "#F3F4F6"; // Default to gray if no color
   };
 
   if (loading) {
@@ -256,16 +541,81 @@ export default function Dashboard() {
     );
   }
 
+  if (error) {
+    return (
+      <div className="p-4 max-w-6xl mx-auto text-center">
+        <p className="text-red-500">Error: {error}</p>
+        <button
+          className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+          onClick={() => fetchAllData()}
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="p-4 max-w-6xl mx-auto">
+      <div className="mb-4 flex justify-between items-center">
+        <h2 className="text-xl font-bold">Defect Dashboard</h2>
+        <button
+          className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600"
+          onClick={() => fetchAllData()}
+        >
+          Refresh Data
+        </button>
+      </div>
+
+      {/* Top 3 Defects Section */}
+      <div className="mb-6 bg-white p-4 rounded-lg shadow-md">
+        <h3 className="text-lg font-bold mb-3 text-[#045F85]">
+          Top 3 Defect Types Today
+        </h3>
+        <div className="flex flex-wrap gap-4">
+          {topDefects.length > 0 ? (
+            topDefects.map((defect, index) => (
+              <div
+                key={index}
+                className={`p-4 rounded-lg shadow flex-1 min-w-[200px] ${
+                  index === 0
+                    ? "bg-red-100 border-l-4 border-red-500"
+                    : index === 1
+                      ? "bg-orange-100 border-l-4 border-orange-500"
+                      : "bg-yellow-100 border-l-4 border-yellow-500"
+                }`}
+              >
+                <div className="text-xl font-bold mb-1">
+                  {index + 1}. {defect.type}
+                </div>
+                <div className="text-gray-700">
+                  <span className="font-medium text-lg">{defect.total}</span>{" "}
+                  defects
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="text-gray-500 italic">No defect data available</div>
+          )}
+        </div>
+      </div>
+
       <div className="overflow-x-auto">
         <table className="w-full border-collapse border border-gray-300">
           <thead>
             <tr className="bg-[#045F85]">
-              <th className="border border-gray-300 text-white px-4 py-2">Color</th>
-              <th className="border border-gray-300 text-white px-4 py-2">Name</th>
-              <th className="border border-gray-300 text-white px-4 py-2">Image</th>
-              <th className="border border-gray-300 text-white px-4 py-2">Defect type</th>
+              <th className="border border-gray-300 text-white px-4 py-2">
+                Color
+              </th>
+              <th className="border border-gray-300 text-white px-4 py-2">
+                Name
+              </th>
+              <th className="border border-gray-300 text-white px-4 py-2">
+                Image
+              </th>
+              <th className="border border-gray-300 text-white px-4 py-2">
+                Defect type
+              </th>
               <th className="border border-gray-300 text-white px-4 py-2">1</th>
               <th className="border border-gray-300 text-white px-4 py-2">2</th>
               <th className="border border-gray-300 text-white px-4 py-2">3</th>
@@ -274,98 +624,110 @@ export default function Dashboard() {
               <th className="border border-gray-300 text-white px-4 py-2">6</th>
               <th className="border border-gray-300 text-white px-4 py-2">7</th>
               <th className="border border-gray-300 text-white px-4 py-2">8</th>
-              <th className="border border-gray-300 text-white px-4 py-2">Total</th>
-              <th className="border border-gray-300 text-white px-4 py-2">G.Total</th>
+              <th className="border border-gray-300 text-white px-4 py-2">
+                Total
+              </th>
+              <th className="border border-gray-300 text-white px-4 py-2">
+                G.Total
+              </th>
             </tr>
           </thead>
           <tbody>
-            {data.map((person, personIndex) => (
-              <React.Fragment key={personIndex}>
-                {person.defects.map((defect, defectIndex) => (
-                  <tr key={`${personIndex}-${defectIndex}`}>
-                    {defectIndex === 0 && (
-                      <>
-                        <td
-                          className="border border-gray-300 px-4 py-2 text-center"
-                          rowSpan={person.defects.length}
-                          style={{
-                            backgroundColor: getBackgroundColor(
-                              person.colorCode
-                            ),
-                          }}
-                        >
-                          {/* Show color name instead of code */}
-                          {getColorName(person.colorCode)}
-                        </td>
-                        <td
-                          className="border border-gray-300 px-4 py-2 text-center"
-                          rowSpan={person.defects.length}
-                        >
-                          {person.fullName || "Unknown"}
-                        </td>
-                        <td
-                          className="border border-gray-300 px-4 py-2 text-center"
-                          rowSpan={person.defects.length}
-                        >
-                          {person.image ? (
-                            <img
-                              src={person.image}
-                              alt={person.fullName}
-                              className="w-12 h-12 rounded-full mx-auto object-cover"
-                            />
-                          ) : (
-                            <div className="w-12 h-12 rounded-full bg-gray-300 mx-auto flex items-center justify-center">
-                              <span className="text-gray-600 font-bold">
-                                {person.firstName
-                                  ? person.firstName.charAt(0)
-                                  : ""}
-                                {person.lastName
-                                  ? person.lastName.charAt(0)
-                                  : ""}
-                              </span>
-                            </div>
-                          )}
-                        </td>
-                      </>
-                    )}
-                    <td className="border border-gray-300 px-4 py-2">
-                      {defect.type}
-                    </td>
-                    {defect.hourlyData.map((value, hourIndex) => (
-                      <td
-                        key={hourIndex}
-                        className="border border-gray-300 p-0 text-center"
-                      >
-                        <input
-                          type="text"
-                          value={value || ""}
-                          onChange={(e) =>
-                            updateCellValue(
-                              personIndex,
-                              defectIndex,
-                              hourIndex,
-                              e.target.value
-                            )
-                          }
-                          className="w-full h-full py-2 px-2 text-center focus:outline-none focus:ring-2 focus:ring-blue-300"
-                        />
+            {data.length === 0 ? (
+              <tr>
+                <td colSpan="14" className="text-center py-4">
+                  No data available. Please check API connections.
+                </td>
+              </tr>
+            ) : (
+              data.map((person, personIndex) => (
+                <React.Fragment key={personIndex}>
+                  {person.defects.map((defect, defectIndex) => (
+                    <tr key={`${personIndex}-${defectIndex}`}>
+                      {defectIndex === 0 && (
+                        <>
+                          <td
+                            className="border border-gray-300 px-4 py-2 text-center"
+                            rowSpan={person.defects.length}
+                            style={{
+                              backgroundColor: getBackgroundColor(
+                                person.colorCode
+                              ),
+                            }}
+                          >
+                            {/* Show color name instead of code */}
+                            {getColorName(person.colorCode)}
+                          </td>
+                          <td
+                            className="border border-gray-300 px-4 py-2 text-center"
+                            rowSpan={person.defects.length}
+                          >
+                            {person.fullName || "Unknown"}
+                          </td>
+                          <td
+                            className="border border-gray-300 px-4 py-2 text-center"
+                            rowSpan={person.defects.length}
+                          >
+                            {person.image ? (
+                              <img
+                                src={person.image}
+                                alt={person.fullName}
+                                className="w-12 h-12 rounded-full mx-auto object-cover"
+                              />
+                            ) : (
+                              <div className="w-12 h-12 rounded-full bg-gray-300 mx-auto flex items-center justify-center">
+                                <span className="text-gray-600 font-bold">
+                                  {person.firstName
+                                    ? person.firstName.charAt(0)
+                                    : ""}
+                                  {person.lastName
+                                    ? person.lastName.charAt(0)
+                                    : ""}
+                                </span>
+                              </div>
+                            )}
+                          </td>
+                        </>
+                      )}
+                      <td className="border border-gray-300 px-4 py-2">
+                        {defect.type}
                       </td>
-                    ))}
-                    <td className="border border-gray-300 px-4 py-2 text-center font-medium bg-gray-100">
-                      {defect.total}
-                    </td>
-                    {defectIndex === 0 && (
-                      <td
-                        className="border border-gray-300 px-4 py-2 text-center font-bold bg-gray-200"
-                        rowSpan={person.defects.length}
-                      >
-                        {calculateGrandTotal(personIndex)}
+                      {defect.hourlyData.map((value, hourIndex) => (
+                        <td
+                          key={hourIndex}
+                          className="border border-gray-300 p-0 text-center"
+                        >
+                          <input
+                            type="text"
+                            value={value || ""}
+                            onChange={(e) =>
+                              updateCellValue(
+                                personIndex,
+                                defectIndex,
+                                hourIndex,
+                                e.target.value
+                              )
+                            }
+                            className="w-full h-full py-2 px-2 text-center focus:outline-none focus:ring-2 focus:ring-blue-300"
+                          />
+                        </td>
+                      ))}
+                      <td className="border border-gray-300 px-4 py-2 text-center font-medium bg-gray-100">
+                        {defect.total}
                       </td>
-                    )}
-                  </tr>
-                ))}
-              </React.Fragment>
-            ))}
+                      {defectIndex === 0 && (
+                        <td
+                          className="border border-gray-300 px-4 py-2 text-center font-bold bg-gray-200"
+                          rowSpan={person.defects.length}
+                        >
+                          {calculateGrandTotal(personIndex)}
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </React.Fragment>
+              ))
+            )}
           </tbody>
         </table>
       </div>

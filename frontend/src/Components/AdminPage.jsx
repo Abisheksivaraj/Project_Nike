@@ -167,10 +167,9 @@ function AdminPage() {
   };
 
   const handleLogout = () => {
-    // Handle logout logic here
     console.log("Logging out...");
     handleProfileMenuClose();
-    // You would typically redirect to login page or clear session
+    navigate("/");
   };
 
   // Handle navigation with auto-close sidebar on mobile/tablet devices
