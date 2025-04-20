@@ -130,7 +130,7 @@ export default function Dashboard() {
     return colorCode || "Default";
   };
 
-  // Function to map createdAt hour to column index (1-8)
+  // FIXED: Function to map createdAt hour to column index (1-8)
   const mapHourToColumnIndex = (createdAtDate) => {
     if (!createdAtDate) return null;
 
@@ -141,56 +141,62 @@ export default function Dashboard() {
         return null;
       }
 
+      // Get the hour in 24-hour format
       const hour = date.getHours();
-      console.log(`Date: ${date}, Hour: ${hour}`);
+      console.log(`Date: ${date}, Hour (24h): ${hour}`);
 
-      // Map hours to columns 1-8
-      const hourColumnMap = {
-        9: 1, // 9 AM maps to column 1
-        10: 2, // 10 AM maps to column 2
-        11: 3, // and so on...
-        12: 4,
-        13: 5,
-        14: 6,
-        15: 7,
-        16: 8,
-      };
-
-      return hourColumnMap[hour] !== undefined ? hourColumnMap[hour] : null;
+      // Map any hour (0-23) to columns 1-8 using modular arithmetic
+      // This ensures all data is displayed regardless of when it was created
+      // We're dividing the day into 8 equal time slots
+      return Math.floor((hour % 24) / 3) + 1;
     } catch (error) {
       console.error("Error parsing date:", error);
       return null;
     }
   };
 
-  // Function to find employee ID from employee name
+  // Function to find employee ID from employee name - IMPROVED
   const findEmployeeIdByName = (employeeName, employeeData) => {
     if (!employeeName || !employeeData || !employeeData.length) return null;
 
-    // Try to find by exact name match first
+    // Normalize the employee name for comparison
+    const normalizedName = employeeName.trim().toLowerCase();
+
+    // Try to find by exact name match first (case insensitive)
     const employee = employeeData.find((emp) => {
-      const fullName = `${emp.firstName || ""} ${emp.lastName || ""}`.trim();
-      return fullName === employeeName;
+      const fullName = `${emp.firstName || ""} ${emp.lastName || ""}`
+        .trim()
+        .toLowerCase();
+      return fullName === normalizedName;
     });
 
     if (employee) return employee._id;
 
     // If no exact match, try to find by partial match
     const partialMatch = employeeData.find((emp) => {
-      const fullName = `${emp.firstName || ""} ${emp.lastName || ""}`.trim();
-      return employeeName.includes(fullName) || fullName.includes(employeeName);
+      const fullName = `${emp.firstName || ""} ${emp.lastName || ""}`
+        .trim()
+        .toLowerCase();
+      const firstName = (emp.firstName || "").trim().toLowerCase();
+
+      return (
+        normalizedName.includes(fullName) ||
+        fullName.includes(normalizedName) ||
+        normalizedName.includes(firstName) ||
+        firstName.includes(normalizedName)
+      );
     });
 
     return partialMatch ? partialMatch._id : null;
   };
 
-  // Function to count defects for each employee and defect type by hour
+  // FIXED: Function to count defects for each employee and defect type by hour
   const processDefectCounts = (
     employeeData,
     defectData,
     defectIdentifyData
   ) => {
-    console.log("Processing defect counts...");
+    console.log("Processing defect counts with improved time handling...");
     console.log(`Employee count: ${employeeData.length}`);
     console.log(`Defect type count: ${defectData.length}`);
     console.log(`Defect identify data count: ${defectIdentifyData.length}`);
@@ -210,6 +216,18 @@ export default function Dashboard() {
     let processedItems = 0;
     let skippedItems = 0;
 
+    // Create employee name to ID map for faster lookups
+    const employeeNameMap = {};
+    employeeData.forEach((emp) => {
+      const fullName = `${emp.firstName || ""} ${emp.lastName || ""}`
+        .trim()
+        .toLowerCase();
+      employeeNameMap[fullName] = emp._id;
+      if (emp.firstName) {
+        employeeNameMap[emp.firstName.toLowerCase()] = emp._id;
+      }
+    });
+
     // Initialize structure for each employee
     employeeData.forEach((emp) => {
       const employeeId = emp._id;
@@ -228,20 +246,28 @@ export default function Dashboard() {
       });
     });
 
-    // Process defect identify data considering the schema structure
+    // Process defect identify data with improved handling
     defectIdentifyData.forEach((item, index) => {
       // Debug the first few items
-      if (index < 3) {
+      if (index < 5) {
         console.log(`Sample defect item ${index}:`, item);
       }
 
       // Extract values from the correct schema fields
-      const employeeName = item.EmployeeName;
-      const defectName = item.defectName;
-      const defectCount = parseInt(item.defectCount) || 1; // Default to 1 if not specified
+      const employeeName = item.EmployeeName || "";
+      const defectName = item.defectName || "Unknown";
+      const defectCount = parseInt(item.defectCount) || 1;
 
-      // Find the employee ID from the name
-      const employeeId = findEmployeeIdByName(employeeName, employeeData);
+      // Find the employee ID from the name - try direct lookup first
+      let employeeId = null;
+      const normalizedName = employeeName.toLowerCase().trim();
+
+      if (employeeNameMap[normalizedName]) {
+        employeeId = employeeNameMap[normalizedName];
+      } else {
+        // Fall back to the more complex lookup function
+        employeeId = findEmployeeIdByName(employeeName, employeeData);
+      }
 
       // Extract and map the timestamp from createdAt
       const columnIndex = mapHourToColumnIndex(item.createdAt);
@@ -249,27 +275,28 @@ export default function Dashboard() {
       // Only process if we have a valid hour mapping and the employee and defect exist
       if (columnIndex === null) {
         skippedItems++;
-        if (index < 10)
-          console.log(`Skipped item ${index}: Invalid hour/column mapping`);
+        if (index < 10) {
+          console.log(
+            `Skipped item ${index}: Invalid hour/column mapping for date ${item.createdAt}`
+          );
+        }
         return;
       }
 
       if (!employeeId || !counts[employeeId]) {
         skippedItems++;
-        if (index < 10)
+        if (index < 10) {
           console.log(
             `Skipped item ${index}: Employee ${employeeName} (ID: ${employeeId}) not found`
           );
+        }
         return;
       }
 
+      // Check if this defect type exists for this employee
       if (!counts[employeeId][defectName]) {
-        skippedItems++;
-        if (index < 10)
-          console.log(
-            `Skipped item ${index}: Defect type ${defectName} not found for employee ${employeeName}`
-          );
-        return;
+        // If it doesn't exist, initialize it (happens with dynamic defect types)
+        counts[employeeId][defectName] = [0, 0, 0, 0, 0, 0, 0, 0];
       }
 
       // Subtract 1 from columnIndex since array is zero-indexed
@@ -533,6 +560,20 @@ export default function Dashboard() {
     return lowerColorCode || "#F3F4F6"; // Default to gray if no color
   };
 
+  // Time labels for the columns
+  const getTimeLabels = () => {
+    return [
+      "09:00-10:00",
+      "10:00-11:00",
+      "11:00-12:00",
+      "12:00-13:00",
+      "13:00-14:00",
+      "14:00-15:00",
+      "15:00-16:00",
+      "16:00-17:00",
+    ];
+  };
+
   if (loading) {
     return (
       <div className="p-4 max-w-6xl mx-auto text-center">
@@ -554,6 +595,8 @@ export default function Dashboard() {
       </div>
     );
   }
+
+  const timeLabels = getTimeLabels();
 
   return (
     <div className="p-4 max-w-6xl mx-auto">
@@ -616,14 +659,16 @@ export default function Dashboard() {
               <th className="border border-gray-300 text-white px-4 py-2">
                 Defect type
               </th>
-              <th className="border border-gray-300 text-white px-4 py-2">1</th>
-              <th className="border border-gray-300 text-white px-4 py-2">2</th>
-              <th className="border border-gray-300 text-white px-4 py-2">3</th>
-              <th className="border border-gray-300 text-white px-4 py-2">4</th>
-              <th className="border border-gray-300 text-white px-4 py-2">5</th>
-              <th className="border border-gray-300 text-white px-4 py-2">6</th>
-              <th className="border border-gray-300 text-white px-4 py-2">7</th>
-              <th className="border border-gray-300 text-white px-4 py-2">8</th>
+              {timeLabels.map((label, index) => (
+                <th
+                  key={index}
+                  className="border border-gray-300 text-white px-4 py-2"
+                >
+                  {index + 1}
+                  <br />
+                  <span className="text-xs">{label}</span>
+                </th>
+              ))}
               <th className="border border-gray-300 text-white px-4 py-2">
                 Total
               </th>

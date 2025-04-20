@@ -15,7 +15,12 @@ const defectIdentifySchema = new mongoose.Schema({
   },
   createdAt: {
     type: Date,
-    default: Date.now,
+    default: function () {
+      // Get current UTC time
+      const now = new Date();
+      // Add 5 hours and 30 minutes to convert to IST
+      return new Date(now.getTime() + 5.5 * 60 * 60 * 1000);
+    },
   },
 });
 
