@@ -143,52 +143,52 @@ const IssueMaster = () => {
   };
 
   return (
-    <div className="bg-white h-[30rem] rounded-lg shadow-lg p-6 max-w-4xl mx-auto mt-8">
-      <h1 className="text-2xl font-semibold text-gray-800 mb-6 border-b pb-3">
+    <div className="bg-white rounded-lg shadow-lg p-3 sm:p-4 md:p-6 max-w-4xl mx-auto mt-4 sm:mt-8">
+      <h1 className="text-xl sm:text-2xl font-semibold text-gray-800 mb-4 sm:mb-6 border-b pb-2 sm:pb-3">
         Issue Management
       </h1>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 md:gap-8">
         {/* Left Column - Input Section */}
-        <div className="space-y-4 h-[23rem]">
-          <div className="bg-gray-50 h-[13rem] p-4 rounded-lg border border-gray-200">
-            <h2 className="text-lg font-medium text-gray-700 mb-3">
+        <div className="space-y-4">
+          <div className="bg-gray-50 p-3 sm:p-4 rounded-lg border border-gray-200">
+            <h2 className="text-base sm:text-lg font-medium text-gray-700 mb-2 sm:mb-3">
               Add New Defect Type
             </h2>
             <div className="flex">
               <input
                 type="text"
-                className="flex-1 rounded-l-lg border border-gray-300 p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="flex-1 rounded-l-lg border border-gray-300 p-2 text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
                 value={newDefectType}
                 onChange={(e) => setNewDefectType(e.target.value)}
                 onKeyPress={handleKeyPress}
                 placeholder="Enter defect type..."
               />
               <button
-                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-r-lg transition-colors"
+                className="bg-blue-600 hover:bg-blue-700 text-white px-2 sm:px-4 py-2 rounded-r-lg transition-colors text-sm sm:text-base whitespace-nowrap"
                 onClick={handleAddDefectType}
               >
                 Add
               </button>
             </div>
-            <div className="mt-2 text-sm text-gray-500">
+            <div className="mt-2 text-xs sm:text-sm text-gray-500">
               Maximum 15 defect types allowed
             </div>
           </div>
 
           {/* Progress indicator */}
-          <div className="bg-gray-50 h-[7rem] p-4 rounded-lg border border-gray-200">
+          <div className="bg-gray-50 p-3 sm:p-4 rounded-lg border border-gray-200">
             <div className="flex justify-between mb-2">
-              <span className="text-sm font-medium text-gray-700">
+              <span className="text-xs sm:text-sm font-medium text-gray-700">
                 Defect Types Used
               </span>
-              <span className="text-sm font-medium text-gray-700">
+              <span className="text-xs sm:text-sm font-medium text-gray-700">
                 {defectTypes.length}/15
               </span>
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-2.5">
+            <div className="w-full bg-gray-200 rounded-full h-2">
               <div
-                className="bg-blue-600 h-2.5 rounded-full"
+                className="bg-blue-600 h-2 rounded-full"
                 style={{ width: `${(defectTypes.length / 15) * 100}%` }}
               ></div>
             </div>
@@ -197,26 +197,30 @@ const IssueMaster = () => {
 
         {/* Right Column - Display Section */}
         <div>
-          <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 h-full">
-            <h2 className="text-lg font-medium text-gray-700 mb-3">
+          <div className="bg-gray-50 p-3 sm:p-4 rounded-lg border border-gray-200 min-h-[180px]">
+            <h2 className="text-base sm:text-lg font-medium text-gray-700 mb-2 sm:mb-3">
               Current Defect Types
             </h2>
 
             {loading ? (
-              <div className="flex justify-center items-center h-32">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              <div className="flex justify-center items-center h-24 sm:h-32">
+                <div className="animate-spin rounded-full h-6 w-6 sm:h-8 sm:w-8 border-b-2 border-blue-600"></div>
               </div>
             ) : error ? (
-              <div className="text-red-500 text-center">{error}</div>
+              <div className="text-red-500 text-center text-sm sm:text-base">
+                {error}
+              </div>
             ) : (
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-1 sm:gap-2">
                 {defectTypes.length > 0 ? (
                   defectTypes.map((type, index) => (
                     <div
                       key={index}
-                      className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full flex items-center"
+                      className="bg-blue-100 text-blue-800 px-2 sm:px-3 py-1 rounded-full flex items-center text-xs sm:text-sm"
                     >
-                      <span>{getDefectName(type)}</span>
+                      <span className="max-w-[120px] sm:max-w-none truncate">
+                        {getDefectName(type)}
+                      </span>
                       <button
                         onClick={() =>
                           handleDeleteDefectType(
@@ -224,14 +228,15 @@ const IssueMaster = () => {
                             index
                           )
                         }
-                        className="ml-2 text-blue-600 hover:text-blue-800"
+                        className="ml-1 sm:ml-2 text-blue-600 hover:text-blue-800 text-base sm:text-lg"
+                        aria-label="Remove defect type"
                       >
                         ×
                       </button>
                     </div>
                   ))
                 ) : (
-                  <p className="text-gray-500 italic">
+                  <p className="text-gray-500 italic text-sm sm:text-base">
                     No defect types added yet
                   </p>
                 )}
@@ -243,11 +248,11 @@ const IssueMaster = () => {
 
       {/* Alert notification */}
       {showAlert && (
-        <div className="fixed top-[5rem] right-4 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 rounded shadow-md">
+        <div className="fixed top-4 sm:top-8 right-2 sm:right-4 left-2 sm:left-auto bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-3 sm:p-4 rounded shadow-md max-w-[calc(100%-16px)] sm:max-w-sm z-50">
           <div className="flex">
             <div className="py-1">
               <svg
-                className="h-6 w-6 text-yellow-500 mr-4"
+                className="h-5 w-5 sm:h-6 sm:w-6 text-yellow-500 mr-2 sm:mr-4"
                 xmlns="http://www.w3.org/2000/svg"
                 fill="none"
                 viewBox="0 0 24 24"
@@ -262,8 +267,10 @@ const IssueMaster = () => {
               </svg>
             </div>
             <div>
-              <p className="font-bold">Warning</p>
-              <p className="text-sm">You can't add more than 15 defect types!</p>
+              <p className="font-bold text-sm sm:text-base">Warning</p>
+              <p className="text-xs sm:text-sm">
+                You can't add more than 15 defect types!
+              </p>
             </div>
           </div>
         </div>
@@ -271,11 +278,11 @@ const IssueMaster = () => {
 
       {/* Success message alert */}
       {successMessage && (
-        <div className="fixed top-[5rem] right-4 bg-green-100 border-l-4 border-green-500 text-green-700 p-4 rounded shadow-md">
+        <div className="fixed top-4 sm:top-8 right-2 sm:right-4 left-2 sm:left-auto bg-green-100 border-l-4 border-green-500 text-green-700 p-3 sm:p-4 rounded shadow-md max-w-[calc(100%-16px)] sm:max-w-sm z-50">
           <div className="flex">
             <div className="py-1">
               <svg
-                className="h-6 w-6 text-green-500 mr-4"
+                className="h-5 w-5 sm:h-6 sm:w-6 text-green-500 mr-2 sm:mr-4"
                 xmlns="http://www.w3.org/2000/svg"
                 fill="none"
                 viewBox="0 0 24 24"
@@ -290,8 +297,8 @@ const IssueMaster = () => {
               </svg>
             </div>
             <div>
-              <p className="font-bold">Success</p>
-              <p className="text-sm">{successMessage}</p>
+              <p className="font-bold text-sm sm:text-base">Success</p>
+              <p className="text-xs sm:text-sm">{successMessage}</p>
             </div>
           </div>
         </div>
@@ -299,11 +306,11 @@ const IssueMaster = () => {
 
       {/* Error alert */}
       {error && (
-        <div className="fixed bottom-4 right-4 bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded shadow-md">
+        <div className="fixed bottom-2 sm:bottom-4 right-2 sm:right-4 left-2 sm:left-auto bg-red-100 border-l-4 border-red-500 text-red-700 p-3 sm:p-4 rounded shadow-md max-w-[calc(100%-16px)] sm:max-w-sm z-50">
           <div className="flex">
             <div className="py-1">
               <svg
-                className="h-6 w-6 text-red-500 mr-4"
+                className="h-5 w-5 sm:h-6 sm:w-6 text-red-500 mr-2 sm:mr-4"
                 xmlns="http://www.w3.org/2000/svg"
                 fill="none"
                 viewBox="0 0 24 24"
@@ -318,8 +325,8 @@ const IssueMaster = () => {
               </svg>
             </div>
             <div>
-              <p className="font-bold">Error</p>
-              <p className="text-sm">{error}</p>
+              <p className="font-bold text-sm sm:text-base">Error</p>
+              <p className="text-xs sm:text-sm">{error}</p>
             </div>
           </div>
         </div>

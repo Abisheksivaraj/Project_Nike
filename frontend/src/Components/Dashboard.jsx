@@ -48,7 +48,7 @@ export default function Dashboard() {
   const fetchDefectIdentifyData = async () => {
     try {
       const response = await api.get("/get-DefectIdentify");
-      // Make sure to handle both response.data and response.data.data patterns
+      console.log("Fetched defect identification data:", response.data);
       let defectIdentifyData = response.data;
       if (defectIdentifyData && defectIdentifyData.data) {
         defectIdentifyData = defectIdentifyData.data;
@@ -130,31 +130,6 @@ export default function Dashboard() {
     return colorCode || "Default";
   };
 
-  // FIXED: Function to map createdAt hour to column index (1-8)
-  const mapHourToColumnIndex = (createdAtDate) => {
-    if (!createdAtDate) return null;
-
-    try {
-      const date = new Date(createdAtDate);
-      if (isNaN(date.getTime())) {
-        console.error("Invalid date:", createdAtDate);
-        return null;
-      }
-
-      // Get the hour in 24-hour format
-      const hour = date.getHours();
-      console.log(`Date: ${date}, Hour (24h): ${hour}`);
-
-      // Map any hour (0-23) to columns 1-8 using modular arithmetic
-      // This ensures all data is displayed regardless of when it was created
-      // We're dividing the day into 8 equal time slots
-      return Math.floor((hour % 24) / 3) + 1;
-    } catch (error) {
-      console.error("Error parsing date:", error);
-      return null;
-    }
-  };
-
   // Function to find employee ID from employee name - IMPROVED
   const findEmployeeIdByName = (employeeName, employeeData) => {
     if (!employeeName || !employeeData || !employeeData.length) return null;
@@ -191,12 +166,13 @@ export default function Dashboard() {
   };
 
   // FIXED: Function to count defects for each employee and defect type by hour
+  // Modify the processDefectCounts function to handle the time correctly
   const processDefectCounts = (
     employeeData,
     defectData,
     defectIdentifyData
   ) => {
-    console.log("Processing defect counts with improved time handling...");
+    console.log("Processing defect counts with time-based mapping...");
     console.log(`Employee count: ${employeeData.length}`);
     console.log(`Defect type count: ${defectData.length}`);
     console.log(`Defect identify data count: ${defectIdentifyData.length}`);
@@ -246,7 +222,53 @@ export default function Dashboard() {
       });
     });
 
-    // Process defect identify data with improved handling
+    // Define time ranges for the 8 columns
+    const timeRanges = [
+      { start: 9, end: 10 }, // Column 0: 09:00-10:00
+      { start: 10, end: 11 }, // Column 1: 10:00-11:00
+      { start: 11, end: 12 }, // Column 2: 11:00-12:00
+      { start: 12, end: 13 }, // Column 3: 12:00-13:00
+      { start: 13, end: 14 }, // Column 4: 13:00-14:00
+      { start: 14, end: 15 }, // Column 5: 14:00-15:00
+      { start: 15, end: 16 }, // Column 6: 15:00-16:00
+      { start: 16, end: 17 }, // Column 7: 16:00-17:00
+    ];
+
+    // Function to determine column index based on time
+    const getColumnIndexFromTime = (timeStr) => {
+      // Handle different time formats
+      let hour = null;
+
+      // Try parsing the time from various formats
+      if (timeStr) {
+        // Format: HH:MM or H:MM
+        const timeMatch = timeStr.match(/(\d{1,2})[:.]\d{2}/);
+        if (timeMatch) {
+          hour = parseInt(timeMatch[1]);
+        }
+        // Format: HH or H (just the hour)
+        else if (/^\d{1,2}$/.test(timeStr)) {
+          hour = parseInt(timeStr);
+        }
+      }
+
+      // If we couldn't parse the hour, return null
+      if (hour === null) {
+        return null;
+      }
+
+      // Find the matching time range
+      for (let i = 0; i < timeRanges.length; i++) {
+        if (hour >= timeRanges[i].start && hour < timeRanges[i].end) {
+          return i;
+        }
+      }
+
+      // If hour is outside our ranges, return null
+      return null;
+    };
+
+    // Process defect identify data
     defectIdentifyData.forEach((item, index) => {
       // Debug the first few items
       if (index < 5) {
@@ -258,6 +280,22 @@ export default function Dashboard() {
       const defectName = item.defectName || "Unknown";
       const defectCount = parseInt(item.defectCount) || 1;
 
+      // Extract time from the defect identify data
+      const timeStr = item.time || item.timeIdentified || "";
+
+      // Get column index based on time
+      const columnIndex = getColumnIndexFromTime(timeStr);
+
+      if (columnIndex === null) {
+        if (index < 10) {
+          console.log(
+            `Skipped item ${index}: Invalid time format or out of range: "${timeStr}"`
+          );
+        }
+        skippedItems++;
+        return;
+      }
+
       // Find the employee ID from the name - try direct lookup first
       let employeeId = null;
       const normalizedName = employeeName.toLowerCase().trim();
@@ -265,22 +303,7 @@ export default function Dashboard() {
       if (employeeNameMap[normalizedName]) {
         employeeId = employeeNameMap[normalizedName];
       } else {
-        // Fall back to the more complex lookup function
         employeeId = findEmployeeIdByName(employeeName, employeeData);
-      }
-
-      // Extract and map the timestamp from createdAt
-      const columnIndex = mapHourToColumnIndex(item.createdAt);
-
-      // Only process if we have a valid hour mapping and the employee and defect exist
-      if (columnIndex === null) {
-        skippedItems++;
-        if (index < 10) {
-          console.log(
-            `Skipped item ${index}: Invalid hour/column mapping for date ${item.createdAt}`
-          );
-        }
-        return;
       }
 
       if (!employeeId || !counts[employeeId]) {
@@ -299,13 +322,13 @@ export default function Dashboard() {
         counts[employeeId][defectName] = [0, 0, 0, 0, 0, 0, 0, 0];
       }
 
-      // Subtract 1 from columnIndex since array is zero-indexed
-      counts[employeeId][defectName][columnIndex - 1] += defectCount;
+      // Update the count for the appropriate hour
+      counts[employeeId][defectName][columnIndex] += defectCount;
       processedItems++;
 
       if (index < 10) {
         console.log(
-          `Processed item ${index}: counts[${employeeId}][${defectName}][${columnIndex - 1}] = ${counts[employeeId][defectName][columnIndex - 1]}`
+          `Processed item ${index}: counts[${employeeId}][${defectName}][${columnIndex}] = ${counts[employeeId][defectName][columnIndex]}, time: ${timeStr}`
         );
       }
     });
@@ -599,28 +622,29 @@ export default function Dashboard() {
   const timeLabels = getTimeLabels();
 
   return (
-    <div className="p-4 max-w-6xl mx-auto">
-      <div className="mb-4 flex justify-between items-center">
-        <h2 className="text-xl font-bold">Defect Dashboard</h2>
+    <div className="p-2 sm:p-4 max-w-full sm:max-w-6xl mx-auto">
+      {/* Header with Responsive Layout */}
+      <div className="mb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+        <h2 className="text-lg sm:text-xl font-bold">Defect Dashboard</h2>
         <button
-          className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600"
+          className="px-2 py-1 sm:px-3 sm:py-1 bg-green-500 text-white text-sm sm:text-base rounded hover:bg-green-600 w-full sm:w-auto"
           onClick={() => fetchAllData()}
         >
           Refresh Data
         </button>
       </div>
 
-      {/* Top 3 Defects Section */}
-      <div className="mb-6 bg-white p-4 rounded-lg shadow-md">
-        <h3 className="text-lg font-bold mb-3 text-[#045F85]">
+      {/* Top 3 Defects Section - Responsive Cards */}
+      <div className="mb-4 sm:mb-6 bg-white p-3 sm:p-4 rounded-lg shadow-md">
+        <h3 className="text-base sm:text-lg font-bold mb-2 sm:mb-3 text-blue-800">
           Top 3 Defect Types Today
         </h3>
-        <div className="flex flex-wrap gap-4">
+        <div className="flex flex-col sm:flex-row flex-wrap gap-2 sm:gap-4">
           {topDefects.length > 0 ? (
             topDefects.map((defect, index) => (
               <div
                 key={index}
-                className={`p-4 rounded-lg shadow flex-1 min-w-[200px] ${
+                className={`p-3 rounded-lg shadow flex-1 min-w-full sm:min-w-0 ${
                   index === 0
                     ? "bg-red-100 border-l-4 border-red-500"
                     : index === 1
@@ -628,11 +652,13 @@ export default function Dashboard() {
                       : "bg-yellow-100 border-l-4 border-yellow-500"
                 }`}
               >
-                <div className="text-xl font-bold mb-1">
+                <div className="text-lg sm:text-xl font-bold mb-1">
                   {index + 1}. {defect.type}
                 </div>
                 <div className="text-gray-700">
-                  <span className="font-medium text-lg">{defect.total}</span>{" "}
+                  <span className="font-medium text-base sm:text-lg">
+                    {defect.total}
+                  </span>{" "}
                   defects
                 </div>
               </div>
@@ -643,138 +669,143 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse border border-gray-300">
-          <thead>
-            <tr className="bg-[#045F85]">
-              <th className="border border-gray-300 text-white px-4 py-2">
-                Color
-              </th>
-              <th className="border border-gray-300 text-white px-4 py-2">
-                Name
-              </th>
-              <th className="border border-gray-300 text-white px-4 py-2">
-                Image
-              </th>
-              <th className="border border-gray-300 text-white px-4 py-2">
-                Defect type
-              </th>
-              {timeLabels.map((label, index) => (
-                <th
-                  key={index}
-                  className="border border-gray-300 text-white px-4 py-2"
-                >
-                  {index + 1}
-                  <br />
-                  <span className="text-xs">{label}</span>
+      {/* Responsive Table with Horizontal Scroll on Small Screens */}
+      <div className="overflow-x-auto bg-white rounded-lg shadow-md">
+        <div className="inline-block min-w-full align-middle">
+          <table className="min-w-full border-collapse border border-gray-300">
+            <thead>
+              <tr className="bg-blue-800">
+                <th className="border border-gray-300 text-white px-2 py-1 sm:px-4 sm:py-2 text-xs sm:text-sm">
+                  Color
                 </th>
-              ))}
-              <th className="border border-gray-300 text-white px-4 py-2">
-                Total
-              </th>
-              <th className="border border-gray-300 text-white px-4 py-2">
-                G.Total
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.length === 0 ? (
-              <tr>
-                <td colSpan="14" className="text-center py-4">
-                  No data available. Please check API connections.
-                </td>
+                <th className="border border-gray-300 text-white px-2 py-1 sm:px-4 sm:py-2 text-xs sm:text-sm">
+                  Name
+                </th>
+                <th className="border border-gray-300 text-white px-2 py-1 sm:px-4 sm:py-2 text-xs sm:text-sm">
+                  Image
+                </th>
+                <th className="border border-gray-300 text-white px-2 py-1 sm:px-4 sm:py-2 text-xs sm:text-sm">
+                  Defect type
+                </th>
+                {timeLabels.map((label, index) => (
+                  <th
+                    key={index}
+                    className="border border-gray-300 text-white px-2 py-1 sm:px-4 sm:py-2 text-xs sm:text-sm"
+                  >
+                    {index + 1}
+                    <br />
+                    <span className="text-xxs sm:text-xs">{label}</span>
+                  </th>
+                ))}
+                <th className="border border-gray-300 text-white px-2 py-1 sm:px-4 sm:py-2 text-xs sm:text-sm">
+                  Total
+                </th>
+                <th className="border border-gray-300 text-white px-2 py-1 sm:px-4 sm:py-2 text-xs sm:text-sm">
+                  G.Total
+                </th>
               </tr>
-            ) : (
-              data.map((person, personIndex) => (
-                <React.Fragment key={personIndex}>
-                  {person.defects.map((defect, defectIndex) => (
-                    <tr key={`${personIndex}-${defectIndex}`}>
-                      {defectIndex === 0 && (
-                        <>
-                          <td
-                            className="border border-gray-300 px-4 py-2 text-center"
-                            rowSpan={person.defects.length}
-                            style={{
-                              backgroundColor: getBackgroundColor(
-                                person.colorCode
-                              ),
-                            }}
-                          >
-                            {/* Show color name instead of code */}
-                            {getColorName(person.colorCode)}
-                          </td>
-                          <td
-                            className="border border-gray-300 px-4 py-2 text-center"
-                            rowSpan={person.defects.length}
-                          >
-                            {person.fullName || "Unknown"}
-                          </td>
-                          <td
-                            className="border border-gray-300 px-4 py-2 text-center"
-                            rowSpan={person.defects.length}
-                          >
-                            {person.image ? (
-                              <img
-                                src={person.image}
-                                alt={person.fullName}
-                                className="w-12 h-12 rounded-full mx-auto object-cover"
-                              />
-                            ) : (
-                              <div className="w-12 h-12 rounded-full bg-gray-300 mx-auto flex items-center justify-center">
-                                <span className="text-gray-600 font-bold">
-                                  {person.firstName
-                                    ? person.firstName.charAt(0)
-                                    : ""}
-                                  {person.lastName
-                                    ? person.lastName.charAt(0)
-                                    : ""}
-                                </span>
-                              </div>
-                            )}
-                          </td>
-                        </>
-                      )}
-                      <td className="border border-gray-300 px-4 py-2">
-                        {defect.type}
-                      </td>
-                      {defect.hourlyData.map((value, hourIndex) => (
-                        <td
-                          key={hourIndex}
-                          className="border border-gray-300 p-0 text-center"
-                        >
-                          <input
-                            type="text"
-                            value={value || ""}
-                            onChange={(e) =>
-                              updateCellValue(
-                                personIndex,
-                                defectIndex,
-                                hourIndex,
-                                e.target.value
-                              )
-                            }
-                            className="w-full h-full py-2 px-2 text-center focus:outline-none focus:ring-2 focus:ring-blue-300"
-                          />
+            </thead>
+            <tbody>
+              {data.length === 0 ? (
+                <tr>
+                  <td colSpan="14" className="text-center py-4 text-sm">
+                    No data available. Please check API connections.
+                  </td>
+                </tr>
+              ) : (
+                data.map((person, personIndex) => (
+                  <React.Fragment key={personIndex}>
+                    {person.defects.map((defect, defectIndex) => (
+                      <tr
+                        key={`${personIndex}-${defectIndex}`}
+                        className="hover:bg-gray-50"
+                      >
+                        {defectIndex === 0 && (
+                          <>
+                            <td
+                              className="border border-gray-300 px-1 py-1 sm:px-4 sm:py-2 text-center text-xs sm:text-sm"
+                              rowSpan={person.defects.length}
+                              style={{
+                                backgroundColor: getBackgroundColor(
+                                  person.colorCode
+                                ),
+                              }}
+                            >
+                              {getColorName(person.colorCode)}
+                            </td>
+                            <td
+                              className="border border-gray-300 px-1 py-1 sm:px-4 sm:py-2 text-center text-xs sm:text-sm"
+                              rowSpan={person.defects.length}
+                            >
+                              {person.fullName || "Unknown"}
+                            </td>
+                            <td
+                              className="border border-gray-300 px-1 py-1 sm:px-4 sm:py-2 text-center"
+                              rowSpan={person.defects.length}
+                            >
+                              {person.image ? (
+                                <img
+                                  src={person.image}
+                                  alt={person.fullName}
+                                  className="w-8 h-8 sm:w-12 sm:h-12 rounded-full mx-auto object-cover"
+                                />
+                              ) : (
+                                <div className="w-8 h-8 sm:w-12 sm:h-12 rounded-full bg-gray-300 mx-auto flex items-center justify-center">
+                                  <span className="text-gray-600 font-bold text-xs sm:text-sm">
+                                    {person.firstName
+                                      ? person.firstName.charAt(0)
+                                      : ""}
+                                    {person.lastName
+                                      ? person.lastName.charAt(0)
+                                      : ""}
+                                  </span>
+                                </div>
+                              )}
+                            </td>
+                          </>
+                        )}
+                        <td className="border border-gray-300 px-1 py-1 sm:px-4 sm:py-2 text-xs sm:text-sm">
+                          {defect.type}
                         </td>
-                      ))}
-                      <td className="border border-gray-300 px-4 py-2 text-center font-medium bg-gray-100">
-                        {defect.total}
-                      </td>
-                      {defectIndex === 0 && (
-                        <td
-                          className="border border-gray-300 px-4 py-2 text-center font-bold bg-gray-200"
-                          rowSpan={person.defects.length}
-                        >
-                          {calculateGrandTotal(personIndex)}
+                        {defect.hourlyData.map((value, hourIndex) => (
+                          <td
+                            key={hourIndex}
+                            className="border border-gray-300 p-0 text-center"
+                          >
+                            <input
+                              type="text"
+                              value={value || ""}
+                              onChange={(e) =>
+                                updateCellValue(
+                                  personIndex,
+                                  defectIndex,
+                                  hourIndex,
+                                  e.target.value
+                                )
+                              }
+                              className="w-full h-full py-1 px-1 sm:py-2 sm:px-2 text-center text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+                            />
+                          </td>
+                        ))}
+                        <td className="border border-gray-300 px-1 py-1 sm:px-4 sm:py-2 text-center font-medium bg-gray-100 text-xs sm:text-sm">
+                          {defect.total}
                         </td>
-                      )}
-                    </tr>
-                  ))}
-                </React.Fragment>
-              ))
-            )}
-          </tbody>
-        </table>
+                        {defectIndex === 0 && (
+                          <td
+                            className="border border-gray-300 px-1 py-1 sm:px-4 sm:py-2 text-center font-bold bg-gray-200 text-xs sm:text-sm"
+                            rowSpan={person.defects.length}
+                          >
+                            {calculateGrandTotal(personIndex)}
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                  </React.Fragment>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

@@ -5,8 +5,13 @@ const route = express.Router();
 
 route.post("/find-Defect", async (req, res) => {
   try {
-    const { defectName, EmployeeName, defectCount ,  } = req.body;
-    const defect = new defectIdentifyType({ defectName, EmployeeName, defectCount });
+    const { defectName, EmployeeName, defectCount, time } = req.body;
+    const defect = new defectIdentifyType({
+      defectName,
+      EmployeeName,
+      defectCount,
+      time,
+    });
     await defect.save();
     res.status(201).json({ message: "defect Type Added Successfully" });
   } catch (error) {

@@ -159,9 +159,15 @@ const AdminProcess = () => {
       const currentCount = parseInt(currentDefects[defectId]) || 0;
 
       // Set the new count as the next sequential number
-      // If currentCount is 0, make it 1
-      // If it's already a number, increment it by 1
       const newCount = currentCount + 1;
+
+      // Generate current IST time string
+      const now = new Date();
+      const istTime = new Date(now.getTime() + 5.5 * 60 * 60 * 1000);
+      const formattedTime = istTime
+        .toISOString()
+        .replace("T", " ")
+        .substring(0, 19);
 
       try {
         let response;
@@ -174,19 +180,21 @@ const AdminProcess = () => {
         );
 
         if (existingRecord) {
-          // Update existing record - explicitly send as a number
+          // Update existing record - explicitly send as a number and include time
           response = await api.put(
             `/update-defect-record/${existingRecord._id}`,
             {
               defectCount: Number(newCount),
+              time: formattedTime,
             }
           );
         } else {
-          // Create new record - explicitly send as a number
+          // Create new record - explicitly send as a number and include time
           response = await api.post("/find-Defect", {
             defectName: defect.name,
             EmployeeName: operator.name,
             defectCount: Number(newCount),
+            time: formattedTime,
           });
         }
 
@@ -244,39 +252,39 @@ const AdminProcess = () => {
   }
 
   return (
-    <div className="flex flex-col p-6 bg-gray-50 min-h-screen font-sans">
+    <div className="flex flex-col p-3 sm:p-6 bg-gray-50 min-h-screen font-sans">
       {/* Toast notification */}
       {toast && <Toast message={toast.message} type={toast.type} />}
 
-      <h1 className="text-3xl font-bold mb-6 text-gray-800">
+      <h1 className="text-2xl sm:text-3xl font-bold mb-4 sm:mb-6 text-gray-800">
         Quality Control Dashboard
       </h1>
 
       {error && (
-        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded">
+        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-3 sm:p-4 mb-4 sm:mb-6 rounded text-sm sm:text-base">
           <p>{error}</p>
         </div>
       )}
 
-      <div className="flex flex-row gap-8">
+      <div className="flex flex-col lg:flex-row gap-4 sm:gap-6 lg:gap-8">
         {/* Operators Section */}
-        <div className="w-1/2 bg-white rounded-xl shadow-md overflow-hidden">
-          <div className="bg-[#045F85] text-white p-4">
-            <h2 className="text-xl font-semibold">Operators</h2>
-            <p className="text-indigo-100 text-sm">
+        <div className="w-full lg:w-1/2 bg-white rounded-xl shadow-md overflow-hidden">
+          <div className="bg-[#045F85] text-white p-3 sm:p-4">
+            <h2 className="text-lg sm:text-xl font-semibold">Operators</h2>
+            <p className="text-indigo-100 text-xs sm:text-sm">
               Select an operator to assign defects
             </p>
           </div>
           {operators.length === 0 ? (
-            <div className="p-8 text-center text-gray-500">
+            <div className="p-4 sm:p-8 text-center text-gray-500 text-sm sm:text-base">
               No operators found. Please add employees to the system.
             </div>
           ) : (
-            <div className="divide-y divide-gray-100">
+            <div className="divide-y divide-gray-100 max-h-96 overflow-y-auto">
               {operators.map((operator) => (
                 <div
                   key={operator.id}
-                  className={`flex items-center p-4 cursor-pointer transition-all ${
+                  className={`flex items-center p-3 sm:p-4 cursor-pointer transition-all ${
                     selectedOperator === operator.id
                       ? "bg-indigo-50 border-l-4"
                       : "hover:bg-gray-50 border-l-4 border-transparent"
@@ -291,7 +299,7 @@ const AdminProcess = () => {
                   }}
                 >
                   <div
-                    className="w-12 h-12 rounded-full mr-4 flex items-center justify-center overflow-hidden shadow-md"
+                    className="w-8 h-8 sm:w-12 sm:h-12 rounded-full mr-2 sm:mr-4 flex items-center justify-center overflow-hidden shadow-md"
                     style={{
                       borderColor: operator.colorCode,
                       borderWidth: "2px",
@@ -303,8 +311,10 @@ const AdminProcess = () => {
                       className="w-full h-full object-cover"
                     />
                   </div>
-                  <div className="flex-grow">
-                    <p className="font-medium text-gray-800">{operator.name}</p>
+                  <div className="flex-grow min-w-0">
+                    <p className="font-medium text-gray-800 text-sm sm:text-base truncate">
+                      {operator.name}
+                    </p>
                     {operatorDefects[operator.id] &&
                       Object.keys(operatorDefects[operator.id]).length > 0 && (
                         <div className="flex flex-wrap gap-1 mt-1">
@@ -314,7 +324,7 @@ const AdminProcess = () => {
                               className="inline-flex items-center bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded-full"
                             >
                               {item.name}
-                              <span className="ml-1 bg-indigo-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">
+                              <span className="ml-1 bg-indigo-500 text-white rounded-full w-4 h-4 sm:w-5 sm:h-5 flex items-center justify-center text-xs">
                                 {item.count}
                               </span>
                             </span>
@@ -322,10 +332,10 @@ const AdminProcess = () => {
                         </div>
                       )}
                   </div>
-                  <div className="ml-2 flex items-center">
+                  <div className="ml-1 sm:ml-2 flex items-center flex-shrink-0">
                     {getTotalDefectCount(operator.id) > 0 && (
                       <div
-                        className="text-white rounded-full w-6 h-6 flex items-center justify-center font-bold mr-2"
+                        className="text-white rounded-full w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center font-bold mr-1 sm:mr-2 text-xs sm:text-sm"
                         style={{ backgroundColor: operator.colorCode }}
                       >
                         {getTotalDefectCount(operator.id)}
@@ -335,7 +345,7 @@ const AdminProcess = () => {
                       <div className="text-indigo-600">
                         <svg
                           xmlns="http://www.w3.org/2000/svg"
-                          className="h-5 w-5"
+                          className="h-4 w-4 sm:h-5 sm:w-5"
                           viewBox="0 0 20 20"
                           fill="currentColor"
                         >
@@ -355,21 +365,21 @@ const AdminProcess = () => {
         </div>
 
         {/* Defects Section */}
-        <div className="w-1/2 bg-white rounded-xl shadow-md overflow-hidden">
-          <div className="bg-[#045F85] text-white p-4">
-            <h2 className="text-xl font-semibold">Defect Types</h2>
-            <p className="text-indigo-100 text-sm">
+        <div className="w-full lg:w-1/2 bg-white rounded-xl shadow-md overflow-hidden mt-4 lg:mt-0">
+          <div className="bg-[#045F85] text-white p-3 sm:p-4">
+            <h2 className="text-lg sm:text-xl font-semibold">Defect Types</h2>
+            <p className="text-indigo-100 text-xs sm:text-sm">
               {selectedOperator
                 ? `Select defects for ${operators.find((op) => op.id === selectedOperator)?.name}`
                 : "Select an operator first"}
             </p>
           </div>
           {defects.length === 0 ? (
-            <div className="p-8 text-center text-gray-500">
+            <div className="p-4 sm:p-8 text-center text-gray-500 text-sm sm:text-base">
               No defect types found. Please add defect types to the system.
             </div>
           ) : (
-            <div className="p-4 grid grid-cols-1 gap-2">
+            <div className="p-3 sm:p-4 grid grid-cols-1 gap-2 max-h-96 overflow-y-auto">
               {defects.map((defect) => {
                 // Get the current count for this defect if it exists
                 const defectCount = selectedOperator
@@ -385,7 +395,7 @@ const AdminProcess = () => {
                 return (
                   <div
                     key={defect.id}
-                    className={`p-4 rounded-lg cursor-pointer transition-all ${
+                    className={`p-3 sm:p-4 rounded-lg cursor-pointer transition-all ${
                       selectedOperator
                         ? defectCount > 0
                           ? "border-l-4"
@@ -405,15 +415,15 @@ const AdminProcess = () => {
                     }}
                   >
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center">
+                      <div className="flex items-center min-w-0">
                         {defectCount > 0 && (
                           <div
-                            className="mr-3"
+                            className="mr-2 sm:mr-3 flex-shrink-0"
                             style={{ color: selectedOperatorColor }}
                           >
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
-                              className="h-5 w-5"
+                              className="h-4 w-4 sm:h-5 sm:w-5"
                               viewBox="0 0 20 20"
                               fill="currentColor"
                             >
@@ -425,13 +435,13 @@ const AdminProcess = () => {
                             </svg>
                           </div>
                         )}
-                        <p className="font-medium text-gray-800">
+                        <p className="font-medium text-gray-800 text-sm sm:text-base truncate">
                           {defect.name}
                         </p>
                       </div>
                       {defectCount > 0 && (
                         <div
-                          className="text-white rounded-full w-6 h-6 flex items-center justify-center font-bold"
+                          className="text-white rounded-full w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center font-bold text-xs sm:text-sm flex-shrink-0 ml-2"
                           style={{ backgroundColor: selectedOperatorColor }}
                         >
                           {defectCount}

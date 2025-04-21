@@ -369,25 +369,27 @@ const ColorCodeMaster = () => {
   };
 
   return (
-    <div className="flex h-screen bg-gray-100">
+    <div className="flex flex-col lg:flex-row min-h-screen bg-gray-100">
       {/* Toast Container */}
       <ToastContainer />
 
       {/* Color Picker Area */}
-      <div className="w-3/4 p-4">
-        <div className="bg-white rounded-lg shadow-md p-4 h-full">
-          <h1 className="text-2xl font-bold mb-4 text-center">Color Picker</h1>
+      <div className="w-full lg:w-3/4 p-2 md:p-4">
+        <div className="bg-white rounded-lg shadow-md p-3 md:p-4 h-full">
+          <h1 className="text-xl md:text-2xl font-bold mb-4 text-center">
+            Color Picker
+          </h1>
 
-          <div className="grid grid-cols-5 gap-4">
-            {/* Left Column - Color Display and Controls */}
-            <div className="col-span-3">
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+            {/* Color Display and Controls - Full width on mobile, 3/5 on desktop */}
+            <div className="lg:col-span-3">
               {/* Color Display */}
               <div
-                className="h-32 rounded-lg flex items-center justify-center mb-4 shadow-inner"
+                className="h-24 md:h-32 rounded-lg flex items-center justify-center mb-4 shadow-inner"
                 style={{ backgroundColor: color, color: getTextColor(color) }}
               >
                 <div className="text-center">
-                  <span className="text-2xl font-bold">
+                  <span className="text-xl md:text-2xl font-bold">
                     {getDisplayValue()}
                   </span>
                   <div className="mt-2">
@@ -411,7 +413,7 @@ const ColorCodeMaster = () => {
               </div>
 
               {/* Controls */}
-              <div className="bg-gray-50 p-4 rounded-lg shadow-sm mb-4">
+              <div className="bg-gray-50 p-3 md:p-4 rounded-lg shadow-sm mb-4">
                 <div className="space-y-4">
                   {/* Hex Input */}
                   <div>
@@ -496,8 +498,8 @@ const ColorCodeMaster = () => {
               </div>
             </div>
 
-            {/* Right Column - Recent and Common Colors */}
-            <div className="col-span-2">
+            {/* Right Column - Recent and Common Colors - Full width on mobile, 2/5 on desktop */}
+            <div className="lg:col-span-2">
               {/* Recent Colors */}
               <div className="mb-4">
                 <h2 className="text-md font-semibold mb-2">Recent Colors</h2>
@@ -537,7 +539,7 @@ const ColorCodeMaster = () => {
                 </div>
 
                 {/* Save Color Section */}
-                <div className="bg-gray-50 mt-10 p-4 rounded-lg shadow-sm">
+                <div className="bg-gray-50 mt-6 md:mt-10 p-3 md:p-4 rounded-lg shadow-sm">
                   <h3 className="text-md font-semibold mb-2">
                     Save This Color
                   </h3>
@@ -551,7 +553,7 @@ const ColorCodeMaster = () => {
                     />
                     <button
                       onClick={addToSavedColors}
-                      className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-r transition"
+                      className="bg-blue-500 hover:bg-blue-600 text-white px-3 md:px-4 py-2 rounded-r transition"
                       disabled={isLoading}
                     >
                       {isLoading ? "Adding..." : "Add"}
@@ -567,10 +569,17 @@ const ColorCodeMaster = () => {
         </div>
       </div>
 
-      {/* Saved Colors Panel */}
-      <div className="w-1/4 p-4">
-        <div className="bg-white rounded-lg shadow-md p-4 h-full">
-          <h2 className="text-xl font-bold mb-4">My Color Collection</h2>
+      {/* Saved Colors Panel - Full width on mobile, 1/4 on desktop */}
+      <div className="w-full lg:w-1/4 p-2 md:p-4">
+        <div className="bg-white rounded-lg shadow-md p-3 md:p-4 h-full">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-lg md:text-xl font-bold">
+              My Color Collection
+            </h2>
+            <button className="lg:hidden text-gray-500 hover:text-gray-700">
+              {/* Optional: Toggle button for showing/hiding on mobile */}
+            </button>
+          </div>
 
           {isLoading && (
             <div className="text-center py-4">
@@ -579,12 +588,12 @@ const ColorCodeMaster = () => {
           )}
 
           {!isLoading && savedColors.length === 0 ? (
-            <div className="text-gray-500 text-center py-8">
+            <div className="text-gray-500 text-center py-6 md:py-8">
               Add colors to your collection by selecting a color and clicking
               "Add"
             </div>
           ) : (
-            <div className="space-y-2 max-h-full overflow-y-auto">
+            <div className="space-y-2 max-h-64 lg:max-h-full overflow-y-auto">
               {savedColors.map((savedColor) => (
                 <div
                   key={savedColor._id}
