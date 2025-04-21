@@ -675,32 +675,32 @@ export default function Dashboard() {
           <table className="min-w-full border-collapse border border-gray-300">
             <thead>
               <tr className="bg-blue-800">
-                <th className="border border-gray-300 text-white px-2 py-1 sm:px-4 sm:py-2 text-xs sm:text-sm">
+                <th className="border border-gray-300 bg-[#045F85] text-white px-2 py-1 sm:px-4 sm:py-2 text-xs sm:text-sm">
                   Color
                 </th>
-                <th className="border border-gray-300 text-white px-2 py-1 sm:px-4 sm:py-2 text-xs sm:text-sm">
+                <th className="border border-gray-300 bg-[#045F85] text-white px-2 py-1 sm:px-4 sm:py-2 text-xs sm:text-sm">
                   Name
                 </th>
-                <th className="border border-gray-300 text-white px-2 py-1 sm:px-4 sm:py-2 text-xs sm:text-sm">
+                <th className="border border-gray-300 bg-[#045F85] text-white px-2 py-1 sm:px-4 sm:py-2 text-xs sm:text-sm">
                   Image
                 </th>
-                <th className="border border-gray-300 text-white px-2 py-1 sm:px-4 sm:py-2 text-xs sm:text-sm">
+                <th className="border border-gray-300 bg-[#045F85] text-white px-2 py-1 sm:px-4 sm:py-2 text-xs sm:text-sm">
                   Defect type
                 </th>
                 {timeLabels.map((label, index) => (
                   <th
                     key={index}
-                    className="border border-gray-300 text-white px-2 py-1 sm:px-4 sm:py-2 text-xs sm:text-sm"
+                    className="border border-gray-300 bg-[#045F85] text-white px-2 py-1 sm:px-4 sm:py-2 text-xs sm:text-sm"
                   >
                     {index + 1}
                     <br />
                     <span className="text-xxs sm:text-xs">{label}</span>
                   </th>
                 ))}
-                <th className="border border-gray-300 text-white px-2 py-1 sm:px-4 sm:py-2 text-xs sm:text-sm">
+                <th className="border border-gray-300 bg-[#045F85] text-white px-2 py-1 sm:px-4 sm:py-2 text-xs sm:text-sm">
                   Total
                 </th>
-                <th className="border border-gray-300 text-white px-2 py-1 sm:px-4 sm:py-2 text-xs sm:text-sm">
+                <th className="border border-gray-300 bg-[#045F85] text-white px-2 py-1 sm:px-4 sm:py-2 text-xs sm:text-sm">
                   G.Total
                 </th>
               </tr>
