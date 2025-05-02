@@ -597,10 +597,48 @@ export default function Dashboard() {
     ];
   };
 
+  // Integrated page loader
+  const renderPageLoader = () => {
+    return (
+      <div className="fixed inset-0 bg-white bg-opacity-90 flex flex-col items-center justify-center z-50">
+        <div className="mb-4">
+          <svg
+            className="animate-spin h-12 w-12 text-blue-600"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+          >
+            <circle
+              className="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              strokeWidth="4"
+            ></circle>
+            <path
+              className="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+            ></path>
+          </svg>
+        </div>
+        <div className="text-center">
+          <h3 className="text-lg font-semibold text-gray-800">
+            Loading Dashboard Data
+          </h3>
+          <p className="text-gray-600 mt-1">
+            Please wait while we fetch the latest information...
+          </p>
+        </div>
+      </div>
+    );
+  };
+
   if (loading) {
     return (
-      <div className="p-4 max-w-6xl mx-auto text-center">
-        <p>Loading data...</p>
+      <div className="p-4 max-w-6xl mx-auto relative min-h-screen">
+        {renderPageLoader()}
       </div>
     );
   }
@@ -608,12 +646,32 @@ export default function Dashboard() {
   if (error) {
     return (
       <div className="p-4 max-w-6xl mx-auto text-center">
-        <p className="text-red-500">Error: {error}</p>
+        <div className="bg-red-50 border-l-4 border-red-400 p-4 rounded shadow-md">
+          <div className="flex items-center">
+            <div className="flex-shrink-0">
+              <svg
+                className="h-5 w-5 text-red-400"
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <p className="text-red-700 font-medium">Error: {error}</p>
+            </div>
+          </div>
+        </div>
         <button
-          className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+          className="mt-6 px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 shadow-md transition duration-150 ease-in-out"
           onClick={() => fetchAllData()}
         >
-          Retry
+          Retry Loading Data
         </button>
       </div>
     );
@@ -628,7 +686,10 @@ export default function Dashboard() {
         <h2 className="text-lg sm:text-xl font-bold">Defect Dashboard</h2>
         <button
           className="px-2 py-1 sm:px-3 sm:py-1 bg-green-500 text-white text-sm sm:text-base rounded hover:bg-green-600 w-full sm:w-auto"
-          onClick={() => fetchAllData()}
+          onClick={() => {
+            setLoading(true);
+            fetchAllData();
+          }}
         >
           Refresh Data
         </button>

@@ -31,7 +31,7 @@ const Login = () => {
     if (loginSuccess && userData) {
       timer = setTimeout(() => {
         navigate("/dashboard");
-      }, 2000); // 5 seconds minimum loading time
+      }, 1000); // 5 seconds minimum loading time
     }
     return () => clearTimeout(timer);
   }, [loginSuccess, userData, navigate]);
